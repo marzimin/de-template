@@ -10,6 +10,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
     _PIP_ADDITIONAL_REQUIREMENTS: ""
+    # Override .env for container networking — inside Docker, postgres is the service hostname
+    POSTGRES_HOST: postgres
   volumes:
     - ./dags:/opt/airflow/dags
     - ./extractors:/opt/airflow/extractors

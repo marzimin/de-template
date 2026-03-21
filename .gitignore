@@ -195,6 +195,11 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
 # PyPI configuration file
 .pypirc
 
