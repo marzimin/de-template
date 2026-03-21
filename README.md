@@ -45,6 +45,20 @@ Airflow DAG          <-- runs all of the above steps on a schedule
 
 ---
 
+## First steps after cloning this template
+
+Once you have created your own repository from this template, rename the project in three places before doing anything else:
+
+1. **`pyproject.toml`** — change `name = "de-template"` to your project name.
+
+2. **`dbt/dbt_project.yml`** — change `name: 'de_template'` and `profile: 'de_template'` to match (use underscores, no hyphens).
+
+3. **`dbt/profiles.yml`** — change the top-level key `de_template:` to the same name you used in step 2.
+
+These three values must be consistent. Everything else (Docker, Python packages, CI) works without renaming.
+
+---
+
 ## Before you start
 
 You will need the following installed on your Mac. Each link goes to the official download or install page.
