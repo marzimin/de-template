@@ -1139,7 +1139,6 @@ dependencies = [
     { name = "apache-airflow" },
     { name = "dbt-postgres" },
     { name = "httpx" },
-    { name = "ipykernel" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1165,6 +1164,7 @@ ml = [
     { name = "xgboost" },
 ]
 notebooks = [
+    { name = "ipykernel" },
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1178,7 +1178,6 @@ requires-dist = [
     { name = "apache-airflow", specifier = ">=2.9.0" },
     { name = "dbt-postgres", specifier = ">=1.8.0" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "pydantic", specifier = ">=2.7.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -1204,6 +1203,7 @@ ml = [
     { name = "xgboost", specifier = ">=2.0.0" },
 ]
 notebooks = [
+    { name = "ipykernel", specifier = ">=6.0.0" },
     { name = "jupyter", specifier = ">=1.0.0" },
     { name = "matplotlib", specifier = ">=3.9.0" },
     { name = "numpy", specifier = ">=1.26.0" },
