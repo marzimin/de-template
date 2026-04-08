@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-docker",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "innoverio.vscode-dbt-power-user",
+    "tamasfe.even-better-toml",
+    "eamodio.gitlens",
+    "anthropics.claude-code"
+  ]
+}

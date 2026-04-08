@@ -275,7 +275,7 @@ volumes:
 ### 4.3 `docker/airflow/Dockerfile`
 
 ```dockerfile
-FROM apache/airflow:2.9.2-python3.11
+FROM apache/airflow:2.10.5-python3.12
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -329,11 +329,11 @@ This is the single source of truth for all Python dependencies. uv's dependency 
 name = "de-template"
 version = "0.1.0"
 description = "General-purpose data engineering & data science project template"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 # Core runtime dependencies — always installed
 dependencies = [
-    "apache-airflow>=2.9.0",
+    "apache-airflow>=2.10.0",
     "dbt-postgres>=1.8.0",
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",
@@ -385,13 +385,13 @@ packages = ["extractors", "loaders"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]  # Error, Pyflakes, isort, pyupgrade, bugbear
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 

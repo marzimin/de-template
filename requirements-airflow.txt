@@ -1,6 +1,9 @@
 # Dependencies installed inside the Airflow Docker image.
 # Mirrors the core runtime deps from pyproject.toml — managed separately
 # because Airflow uses pip internally, not uv.
+#
+# IMPORTANT: Keep versions in sync with pyproject.toml [project.dependencies].
+# When adding or updating a package here, update pyproject.toml as well.
 
 dbt-postgres>=1.8.0
 psycopg2-binary>=2.9.9

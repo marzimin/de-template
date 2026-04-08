@@ -1,0 +1,27 @@
+version: 2
+
+# Example schema.yml — defines sources and generic tests for staging models.
+# Copy and adapt this for each new data source you add.
+
+sources:
+  - name: raw
+    schema: raw
+    description: Raw landing zone — data loaded directly from source APIs.
+    tables:
+      - name: example_items
+        description: Raw records loaded by the example extractor/loader pipeline.
+        columns:
+          - name: id
+            description: Primary key from the source API.
+            tests:
+              - not_null
+              - unique
+
+# models:
+#   - name: stg_example_items
+#     description: Staged and lightly cleaned example items.
+#     columns:
+#       - name: item_id
+#         tests:
+#           - not_null
+#           - unique

@@ -133,6 +133,8 @@ uv run pre-commit install
 
 This sets up automatic code quality checks that run every time you make a commit. They catch common mistakes (formatting, typos, unused imports) before the code reaches GitHub.
 
+> **Note:** The ruff hook runs with `--fix`, which means it will **automatically modify your files** to resolve lint issues before completing the commit. If this happens, re-stage the changed files (`git add -u`) and run `git commit` again.
+
 ---
 
 ### Step 5: Start the database and Airflow
