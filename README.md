@@ -261,7 +261,8 @@ de-template/
 ├── .env.example                 Template for your local configuration
 ├── docker-compose.yml           Defines all Docker services
 ├── requirements-airflow.txt     Python packages installed inside Airflow containers
-└── pyproject.toml               Python project and dependency configuration
+├── pyproject.toml               Python project and dependency configuration
+└── Makefile                     Convenience commands (make lint, make test, make up, …)
 ```
 
 ---

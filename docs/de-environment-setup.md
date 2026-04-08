@@ -275,7 +275,7 @@ volumes:
 ### 4.3 `docker/airflow/Dockerfile`
 
 ```dockerfile
-FROM apache/airflow:2.10.5-python3.12
+FROM apache/airflow:3.1.8-python3.12
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -333,7 +333,7 @@ requires-python = ">=3.12"
 
 # Core runtime dependencies — always installed
 dependencies = [
-    "apache-airflow>=2.10.0",
+    "apache-airflow>=3.1.0",
     "dbt-postgres>=1.8.0",
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",

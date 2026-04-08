@@ -5,6 +5,7 @@
 # IMPORTANT: Keep versions in sync with pyproject.toml [project.dependencies].
 # When adding or updating a package here, update pyproject.toml as well.
 
+apache-airflow-providers-standard>=1.0.0
 dbt-postgres>=1.8.0
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.0
