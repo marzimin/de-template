@@ -1,16 +1,32 @@
-version: "3.9"
-
 x-airflow-common: &airflow-common
   build:
-    context: ./docker/airflow
+    # Context is the repo root so the Dockerfile can COPY requirements-airflow.txt
+    # (which lives at the root, kept in sync with pyproject.toml).
+    context: .
+    dockerfile: docker/airflow/Dockerfile
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow_db
-    # Development only — empty key is insecure. For production, generate with:
-    # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    AIRFLOW__CORE__FERNET_KEY: ""
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+
+    # ── Auth (Airflow 3 SimpleAuthManager) ──────────────────────────────────
+    # Airflow 3 removed the FAB-based `airflow users` CLI from core. The default
+    # SimpleAuthManager reads users as `username:role` pairs and stores their
+    # passwords in a JSON file. We pin that file (mounted below, pre-seeded with
+    # admin/admin) so the login is stable instead of a random password in logs.
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/simple_auth_manager_passwords.json
+
+    # ── Secrets (development only — change for any shared/production use) ─────
+    # Empty Fernet key disables connection/variable encryption. Generate one with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    AIRFLOW__CORE__FERNET_KEY: ""
+    # Shared JWT secret so LocalExecutor tasks (run by the scheduler) can
+    # authenticate to the api-server's execution API. Must match across services.
+    AIRFLOW__API_AUTH__JWT_SECRET: "dev-jwt-secret-change-me"
+    AIRFLOW__API__SECRET_KEY: "dev-secret-key-change-me"
+
     _PIP_ADDITIONAL_REQUIREMENTS: ""
     # Override .env for container networking — inside Docker, postgres is the service hostname
     POSTGRES_HOST: postgres
@@ -19,6 +35,7 @@ x-airflow-common: &airflow-common
     - ./extractors:/opt/airflow/extractors
     - ./loaders:/opt/airflow/loaders
     - ./dbt:/opt/airflow/dbt
+    - ./docker/airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json
     - airflow_logs:/opt/airflow/logs
   depends_on:
     postgres:
@@ -44,30 +61,45 @@ services:
       retries: 5
       start_period: 5s
 
+  # Runs once: creates the Airflow metadata tables. Re-running is safe (no-op).
   airflow-init:
     <<: *airflow-common
-    command: >
-      bash -c "airflow db migrate &&
-               airflow users create
-                 --username admin
-                 --password admin
-                 --firstname Admin
-                 --lastname User
-                 --role Admin
-                 --email admin@example.com"
+    command: db migrate
     restart: "no"
 
-  airflow-webserver:
+  # Serves the Airflow UI + REST/execution API on :8080 (replaces `webserver` in Airflow 3).
+  airflow-api-server:
     <<: *airflow-common
-    command: webserver
+    command: api-server
     ports:
       - "8080:8080"
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Standalone DAG file parser — a required, separate component in Airflow 3.
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

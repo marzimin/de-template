@@ -10,8 +10,10 @@ uv sync --group dev
 echo "==> Installing pre-commit hooks"
 uv run pre-commit install
 
-echo "==> Starting Docker services (first run builds images)"
-docker compose up airflow-init
+echo "==> Building image and initialising the Airflow metadata database"
+docker compose up airflow-init --build
+
+echo "==> Starting Docker services"
 docker compose up -d
 
 echo ""
