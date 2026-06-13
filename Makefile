@@ -44,11 +44,12 @@ airflow-init:
 
 ## ── dbt ──────────────────────────────────────────────────────────────────────
 
+# Local dbt targets load .env (if present) so WAREHOUSE_*/POSTGRES_* are set.
 dbt-run:
-	uv run dbt run --project-dir dbt/ --profiles-dir dbt/
+	set -a; [ -f .env ] && . ./.env || true; set +a; uv run dbt run --project-dir dbt/ --profiles-dir dbt/
 
 dbt-test:
-	uv run dbt test --project-dir dbt/ --profiles-dir dbt/
+	set -a; [ -f .env ] && . ./.env || true; set +a; uv run dbt test --project-dir dbt/ --profiles-dir dbt/
 
 dbt-run-container:
 	docker compose exec airflow-scheduler bash -c "cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt"
