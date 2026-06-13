@@ -11,8 +11,8 @@ This template wires together four industry-standard tools so you do not have to 
 | Tool | What it does |
 | --- | --- |
 | **Docker Desktop** | Runs your database and scheduler as isolated services on your laptop |
-| **PostgreSQL** | The database where your raw and processed data lives |
-| **Apache Airflow** | The scheduler that runs your data pipelines on a timetable |
+| **PostgreSQL 16** | The database where your raw and processed data lives |
+| **Apache Airflow 3** | The scheduler that runs your data pipelines on a timetable |
 | **dbt** | Cleans and transforms raw data into analysis-ready tables |
 
 Your Python code (the part that fetches data from APIs and loads it into the database) lives in the `extractors/` and `loaders/` folders. Everything else is plumbing that this template handles for you.
@@ -139,19 +139,28 @@ This sets up automatic code quality checks that run every time you make a commit
 
 ### Step 5: Start the database and Airflow
 
-Run this once the very first time — it sets up the database tables Airflow needs internally:
+Run this once the very first time. It builds the Airflow image (installs dbt and the
+project's Python packages inside it) and creates the metadata tables Airflow needs
+internally. The first build downloads a lot, so it can take a few minutes:
 
 ```bash
-docker compose up airflow-init
+docker compose up airflow-init --build
 ```
 
-Then start all services:
+Wait for it to print `Database migrating done!` and exit. Then start all services:
 
 ```bash
 docker compose up -d
 ```
 
-The `-d` flag runs everything in the background. Docker Desktop will show you the running containers.
+The `-d` flag runs everything in the background. Docker Desktop will show you four
+running containers: `postgres`, `airflow-api-server`, `airflow-scheduler`, and
+`airflow-dag-processor`.
+
+> **Why four containers?** Airflow 3 splits responsibilities: the **api-server** serves
+> the web UI and REST API, the **scheduler** decides what to run, and the
+> **dag-processor** (new and required in Airflow 3) parses your DAG files. All three
+> are started for you by `docker compose up`.
 
 ---
 
@@ -164,7 +173,16 @@ You should see the Airflow login screen. Sign in with:
 - Username: `admin`
 - Password: `admin`
 
-You can also connect VS Code to the database directly using the SQLTools extension — host `localhost`, port `5432`, user `de_user`, password `de_password`, database `warehouse`.
+> **How login works:** Airflow 3 replaced the old `airflow users` system with the
+> built-in *SimpleAuthManager*. This template ships a pre-seeded password file
+> (`docker/airflow/simple_auth_manager_passwords.json`) so the login is a stable
+> `admin` / `admin` instead of a random password printed in the logs. This is for
+> **local development only** — do not use it as-is in a shared or production environment.
+
+You can also connect VS Code to the database directly using the SQLTools extension —
+host `localhost`, port `5432`, user `de_user`, password `de_password`, database
+`warehouse`. (These credentials, plus the `raw` / `staging` / `marts` schemas, are
+created automatically by `docker/postgres/init.sql` the first time Postgres starts.)
 
 ---
 
@@ -180,11 +198,22 @@ You can also connect VS Code to the database directly using the SQLTools extensi
 
 5. **Create a DAG** — duplicate `dags/example_pipeline.py`, update it to import and call your new extractor, and set the schedule you want (e.g. `@hourly`, `@daily`).
 
-6. **Restart Airflow** so it picks up the new DAG:
+   The `dags/`, `extractors/`, and `loaders/` folders are mounted into the containers,
+   so **new and edited `.py` files are picked up automatically** within a minute — no
+   restart needed.
+
+6. **If you added a new Python package** to `requirements-airflow.txt`, the image must be
+   rebuilt for Airflow to see it:
 
    ```bash
-   docker compose restart airflow-scheduler airflow-webserver
+   docker compose up -d --build
    ```
+
+> **About the bundled example:** `example_pipeline` points at a placeholder API
+> (`api.example.com`) and reads `EXAMPLE_API_KEY` from `.env`. Its `extract_and_load`
+> task is **expected to fail** if you trigger it until you swap in a real API and key —
+> the DAG itself still parses and appears in the UI. Use it as a copy-paste starting
+> point, then delete it once you have your own.
 
 ---
 
@@ -198,9 +227,26 @@ dbt models are SQL files that live in `dbt/models/`. The folder structure follow
 | Intermediate | `dbt/models/intermediate/` | Join staging models together |
 | Marts | `dbt/models/marts/` | Final tables — one per business question or dashboard |
 
-To create a new model, add a `.sql` file to the appropriate folder. Then run:
+Models land in exactly the schema named by their `+schema:` setting in
+`dbt/dbt_project.yml` (so `marts` models go to the `marts` schema, matching the schemas
+created in `init.sql`). This is handled by `dbt/macros/generate_schema_name.sql`, which
+overrides dbt's default behaviour of prefixing the schema name.
+
+To create a new model, add a `.sql` file to the appropriate folder.
+
+dbt reads the database connection from `POSTGRES_*` environment variables (see
+`dbt/profiles.yml`). The easiest way to run it is **inside the Airflow container**, where
+those variables are already set:
 
 ```bash
+make dbt-run-container
+```
+
+To run dbt **from your laptop** instead, load the variables from `.env` first, then call dbt
+(this is what `make dbt-run` does, minus the `source` step):
+
+```bash
+set -a && source .env && set +a
 uv run dbt run --project-dir dbt/ --profiles-dir dbt/
 ```
 
@@ -253,7 +299,7 @@ de-template/
 │       └── marts/               Final analytical tables
 ├── extractors/                  Python code that fetches data from APIs
 ├── loaders/                     Python code that writes data to PostgreSQL
-├── docker/                      Dockerfile and database initialisation SQL
+├── docker/                      Airflow Dockerfile, Postgres init SQL, auth password file
 ├── docs/                        Project documentation and setup guides
 ├── tests/                       Automated tests
 ├── notebooks/                   Jupyter notebooks (activate when needed)
@@ -301,4 +347,16 @@ Another application is using that port. To find it: `lsof -i :5432` (or `:8080`)
 Close Terminal, reopen it, and try again. If that does not help, run `source ~/.zshrc` (or `~/.bash_profile`) to reload your shell configuration.
 
 **Airflow shows no DAGs**
-Make sure your DAG file is saved in the `dags/` folder and has no Python syntax errors. Run `python dags/your_dag.py` to check for errors before restarting the scheduler.
+DAG files are parsed by the `airflow-dag-processor` container. Make sure your file is
+saved in the `dags/` folder and has no Python syntax errors. Check the processor's logs
+for parse errors with `docker compose logs airflow-dag-processor`, or test the file
+locally first with `uv run python dags/your_dag.py` (no output means it parsed cleanly).
+
+**The web UI / login does not load (`docker compose up` shows containers restarting)**
+Check which container is failing with `docker compose ps` and read its logs, e.g.
+`docker compose logs airflow-api-server`. If you changed any `AIRFLOW__...` setting in
+`docker-compose.yml`, a typo there is the usual cause.
+
+**`docker compose up airflow-init` fails with "permission denied for schema public"**
+This means the Postgres data volume was created before the `init.sql` fix. Reset it with
+`docker compose down -v` (this deletes local data) and run Step 5 again.
