@@ -4,7 +4,7 @@
     dbt's built-in behaviour concatenates the target schema with the custom
     schema (e.g. target `staging` + custom `marts` -> `staging_marts`). That
     surprises newcomers and would not match the `raw` / `staging` / `marts`
-    schemas created in docker/postgres/init.sql. This override makes a model
+    schemas created in docker/postgres/init.sh. This override makes a model
     with `+schema: marts` land in exactly the `marts` schema.
 #}
 {% macro generate_schema_name(custom_schema_name, node) -%}

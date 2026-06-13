@@ -162,7 +162,7 @@ de-template/
 │   │   ├── Dockerfile              # Extends official Airflow image; installs requirements-airflow.txt
 │   │   └── simple_auth_manager_passwords.json  # Pre-seeds admin/admin login for local dev
 │   └── postgres/
-│       └── init.sql                # Creates databases, users, and schemas on first run
+│       └── init.sh                 # Creates databases, users, and schemas on first run
 │
 ├── scripts/
 │   └── init_dev.sh                 # One-command local bootstrap (Steps 2–6)
@@ -184,7 +184,7 @@ de-template/
 - **`tests/test_extractors/` vs `tests/test_loaders/`** — mirrors production engineering test strategy. Tests are colocated with the layer they cover.
 - **`requirements-airflow.txt`** — decouples what runs inside Docker from the local developer environment managed by `pyproject.toml`. Add packages here if your Airflow DAG needs them at runtime.
 - **`.env.example`** — documents required environment variables without committing secrets.
-- **`dbt/macros/generate_schema_name.sql`** — overrides dbt's default schema-name concatenation so `+schema: marts` in `dbt_project.yml` lands in exactly the `marts` schema (not `staging_marts`), matching what `init.sql` creates.
+- **`dbt/macros/generate_schema_name.sql`** — overrides dbt's default schema-name concatenation so `+schema: marts` in `dbt_project.yml` lands in exactly the `marts` schema (not `staging_marts`), matching what `init.sh` creates.
 
 ---
 
@@ -246,10 +246,14 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      WAREHOUSE_DB: ${WAREHOUSE_DB:-warehouse}
+      WAREHOUSE_USER: ${WAREHOUSE_USER:-de_user}
+      WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-de_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
     ports:
       - "5432:5432"
     healthcheck:
@@ -296,7 +300,7 @@ volumes:
 
 **Key design notes:**
 
-- The postgres superuser is `postgres` (not `de_user`). `init.sql` creates the application users separately.
+- The postgres superuser is `postgres` (not `de_user`). `init.sh` creates the application users separately from `.env` values.
 - Airflow uses its own dedicated database (`airflow_db`) and user (`airflow`). Your pipeline data lives in the `warehouse` database under the `de_user` account.
 - DAGs, extractors, loaders, and dbt are mounted directly from your local checkout — no rebuild needed when you change Python or SQL files.
 - **Build context is the repo root** (not `./docker/airflow`) so the Dockerfile can access `requirements-airflow.txt`, which lives at the root. This is easy to break if you move the file.
@@ -320,31 +324,11 @@ RUN pip install --no-cache-dir -r /opt/airflow/requirements-airflow.txt
 
 > If you add a Python package that your DAGs or extractors need at runtime, add it to `requirements-airflow.txt` and rebuild with `docker compose up -d --build`.
 
-### 4.4 `docker/postgres/init.sql`
+### 4.4 `docker/postgres/init.sh`
 
-```sql
--- Create separate databases
-CREATE DATABASE airflow_db;
-CREATE DATABASE warehouse;
-
--- Airflow's dedicated Postgres user.
--- On Postgres 15+, GRANT ON DATABASE does NOT allow creating tables in the
--- public schema — making airflow the DB owner gives it full control so that
--- `airflow db migrate` succeeds.
-CREATE USER airflow WITH PASSWORD 'airflow';
-ALTER DATABASE airflow_db OWNER TO airflow;
-GRANT ALL PRIVILEGES ON DATABASE airflow_db TO airflow;
-
--- Connect to warehouse and create ELT schemas
-\c warehouse;
-CREATE SCHEMA IF NOT EXISTS raw;        -- Landing zone for API data
-CREATE SCHEMA IF NOT EXISTS staging;    -- dbt staging models
-CREATE SCHEMA IF NOT EXISTS marts;      -- dbt final models
-
--- Application user for pipeline code
-CREATE USER de_user WITH PASSWORD 'de_password';
-GRANT ALL PRIVILEGES ON DATABASE warehouse TO de_user;
-GRANT ALL PRIVILEGES ON SCHEMA raw, staging, marts TO de_user;
+```bash
+# Runs during first Postgres initialization.
+# Creates Airflow metadata storage plus the warehouse DB/user from .env.
 ```
 
 This runs automatically the first time the `postgres` container starts. It will **not** re-run on subsequent starts — delete the `postgres_data` Docker volume (`docker compose down -v`) if you need a fresh database.
@@ -578,9 +562,11 @@ docker compose up -d
 # PostgreSQL — used by extractors/loaders running locally or inside Airflow
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_USER=de_user
-POSTGRES_PASSWORD=de_password
-POSTGRES_DB=warehouse
+POSTGRES_SUPERUSER_PASSWORD=postgres
+
+WAREHOUSE_DB=warehouse
+WAREHOUSE_USER=de_user
+WAREHOUSE_PASSWORD=de_password
 
 # Airflow container UID (prevents permission issues on mounted volumes)
 AIRFLOW_UID=50000
@@ -650,7 +636,7 @@ The loader auto-creates the target schema and table on first run, then inserts r
 
 ### `dbt/macros/generate_schema_name.sql`
 
-Overrides dbt's default behaviour of concatenating the target schema with the custom schema (which would produce `staging_marts`, not `marts`). With this macro in place, a model's `+schema: marts` setting maps to exactly the `marts` schema in PostgreSQL — matching what `init.sql` creates.
+Overrides dbt's default behaviour of concatenating the target schema with the custom schema (which would produce `staging_marts`, not `marts`). With this macro in place, a model's `+schema: marts` setting maps to exactly the `marts` schema in PostgreSQL — matching what `init.sh` creates.
 
 ### `requirements-airflow.txt`
 
@@ -730,7 +716,7 @@ uv run dbt run --project-dir dbt/ --profiles-dir dbt/
 | A `.sql` file in `dbt/models/` | Nothing — volume is live-mounted; re-run dbt |
 | `requirements-airflow.txt` | `docker compose up -d --build` |
 | `docker-compose.yml` env vars | `docker compose up -d` |
-| `docker/postgres/init.sql` | `docker compose down -v` then full init (deletes data) |
+| `docker/postgres/init.sh` | `docker compose down -v` then full init (deletes data) |
 
 ---
 

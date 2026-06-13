@@ -181,8 +181,9 @@ You should see the Airflow login screen. Sign in with:
 
 You can also connect VS Code to the database directly using the SQLTools extension —
 host `localhost`, port `5432`, user `de_user`, password `de_password`, database
-`warehouse`. (These credentials, plus the `raw` / `staging` / `marts` schemas, are
-created automatically by `docker/postgres/init.sql` the first time Postgres starts.)
+`warehouse`. (These values come from `.env`; the database user and the `raw` /
+`staging` / `marts` schemas are created automatically by
+`docker/postgres/init.sh` the first time Postgres starts.)
 
 ---
 
@@ -229,7 +230,7 @@ dbt models are SQL files that live in `dbt/models/`. The folder structure follow
 
 Models land in exactly the schema named by their `+schema:` setting in
 `dbt/dbt_project.yml` (so `marts` models go to the `marts` schema, matching the schemas
-created in `init.sql`). This is handled by `dbt/macros/generate_schema_name.sql`, which
+created in `init.sh`). This is handled by `dbt/macros/generate_schema_name.sql`, which
 overrides dbt's default behaviour of prefixing the schema name.
 
 To create a new model, add a `.sql` file to the appropriate folder.
@@ -358,5 +359,5 @@ Check which container is failing with `docker compose ps` and read its logs, e.g
 `docker-compose.yml`, a typo there is the usual cause.
 
 **`docker compose up airflow-init` fails with "permission denied for schema public"**
-This means the Postgres data volume was created before the `init.sql` fix. Reset it with
+This means the Postgres data volume was created before the `init.sh` fix. Reset it with
 `docker compose down -v` (this deletes local data) and run Step 5 again.

@@ -196,6 +196,7 @@ cython_debug/
 .ruff_cache/
 
 # dbt
+dbt/.user.yml
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
