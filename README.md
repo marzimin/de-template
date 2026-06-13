@@ -235,9 +235,9 @@ overrides dbt's default behaviour of prefixing the schema name.
 
 To create a new model, add a `.sql` file to the appropriate folder.
 
-dbt reads the database connection from `POSTGRES_*` environment variables (see
-`dbt/profiles.yml`). The easiest way to run it is **inside the Airflow container**, where
-those variables are already set:
+dbt reads the database connection from the `WAREHOUSE_*` variables (user, password,
+database) plus `POSTGRES_HOST` / `POSTGRES_PORT` (see `dbt/profiles.yml`). The easiest
+way to run it is **inside the Airflow container**, where those variables are already set:
 
 ```bash
 make dbt-run-container

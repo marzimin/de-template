@@ -15,9 +15,9 @@ INVALID_IDENTIFIER_CHARS = re.compile(r"[^a-z0-9_]+")
 def _engine_from_env() -> Engine:
     host = os.environ["POSTGRES_HOST"]
     port = os.environ.get("POSTGRES_PORT", "5432")
-    user = os.environ.get("WAREHOUSE_USER") or os.environ["POSTGRES_USER"]
-    password = os.environ.get("WAREHOUSE_PASSWORD") or os.environ["POSTGRES_PASSWORD"]
-    db = os.environ.get("WAREHOUSE_DB") or os.environ["POSTGRES_DB"]
+    user = os.environ["WAREHOUSE_USER"]
+    password = os.environ["WAREHOUSE_PASSWORD"]
+    db = os.environ["WAREHOUSE_DB"]
     url = URL.create(
         "postgresql+psycopg2",
         username=user,
