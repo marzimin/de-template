@@ -55,7 +55,7 @@ sources:
 # -----------------------------------------------------------------------------
 # Hand-off to the data science project
 # -----------------------------------------------------------------------------
-# Marts exported to files that ds-template-local reads from its `data/raw/`.
+# Marts exported to files that ds-template reads from its `data/raw/`.
 # This is the seam between the two repositories: this project owns everything
 # up to and including `marts`, that project owns everything after the file.
 #
@@ -64,7 +64,7 @@ sources:
 #                 at the DS project's data/raw/ instead, which is the usual
 #                 setup when both repositories are checked out side by side.
 #   format      — "csv" or "parquet". Use csv unless you have a reason not to:
-#                 ds-template-local reads csv out of the box, and parquet needs
+#                 ds-template reads csv out of the box, and parquet needs
 #                 its cfg/config.yaml pointed at the file explicitly.
 #   null_sentinel — what a SQL NULL becomes in CSV. Empty is what pandas reads
 #                 as NaN with no extra configuration, so it is the default. The

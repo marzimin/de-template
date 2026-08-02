@@ -1,7 +1,7 @@
 version: 2
 
 # Marts are the only layer read from outside dbt, so this file is a contract,
-# not just documentation. Anything exported to ds-template-local is described
+# not just documentation. Anything exported to ds-template is described
 # here, and the tests below are what stop a broken mart reaching a model.
 #
 # Mirror these column constraints as Pandera checks in that project's
@@ -12,7 +12,7 @@ models:
   - name: example_items
     description: >
       Starter mart used to verify dbt tests in a fresh clone. Exported to
-      example_items.csv for ds-template-local — see `exports:` in
+      example_items.csv for ds-template — see `exports:` in
       cfg/config.yaml.
     columns:
       - name: item_id

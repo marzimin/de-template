@@ -18,7 +18,7 @@ uv sync --group dev
 echo "==> Installing pre-commit hooks"
 uv run pre-commit install
 
-echo "==> Creating the export directory for the ds-template-local hand-off"
+echo "==> Creating the export directory for the ds-template hand-off"
 mkdir -p data/exports
 
 echo "==> Building image and initialising the Airflow metadata database"
@@ -35,4 +35,4 @@ echo ""
 echo "Next:"
 echo "  make help     list every command"
 echo "  make dbt-run  build the dbt models"
-echo "  make export   write the marts out for ds-template-local"
+echo "  make export   write the marts out for ds-template"

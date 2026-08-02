@@ -91,7 +91,7 @@ standalone_admin_password.txt
 # Unanchored, `data/` would also match any nested directory of that name and
 # silently ignore source files.
 # /data/exports/ — where exporters/ writes the hand-off files consumed by
-#                  ds-template-local. Track the structure, never the contents.
+#                  ds-template. Track the structure, never the contents.
 /data/**
 !/data/exports/
 !/data/exports/.gitkeep

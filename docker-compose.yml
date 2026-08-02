@@ -51,7 +51,7 @@ x-airflow-common: &airflow-common
     # Where the export task writes. To have Airflow write straight into the DS
     # project instead, point this at its data/raw and set DS_DATA_RAW_DIR to
     # /opt/airflow/data/exports in .env:
-    #   - /Users/you/code/ds-template-local/data/raw:/opt/airflow/data/exports
+    #   - /Users/you/code/ds-template/data/raw:/opt/airflow/data/exports
     - ./data/exports:/opt/airflow/data/exports
     - ./docker/airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json
     - airflow_logs:/opt/airflow/logs

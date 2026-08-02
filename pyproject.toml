@@ -15,7 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.7.0",
     "pyyaml>=6.0",
-    # Parquet export. The floor matches ds-template-local so a file written here
+    # Parquet export. The floor matches ds-template so a file written here
     # is readable there without a version negotiation.
     "pyarrow>=23.0.1",
     "tenacity>=8.3.0",
@@ -31,7 +31,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-httpx>=0.30.0",
     # The hand-off is only real if pandas can read the file, so the tests that
-    # assert that need pandas. Same floor as ds-template-local, which is the
+    # assert that need pandas. Same floor as ds-template, which is the
     # reader those tests stand in for.
     "pandas>=2.2.0",
     "ruff>=0.15.0",
@@ -45,7 +45,7 @@ dev = [
 # Ad-hoc exploration against the warehouse. Activate with:
 #   uv sync --group notebooks
 #
-# Modelling lives in ds-template-local, not here. This template stops at the
+# Modelling lives in ds-template, not here. This template stops at the
 # marts layer and hands off through exporters/; see docs/handoff.md.
 notebooks = [
     "jupyter>=1.0.0",
@@ -70,7 +70,7 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-# E/F/I/UP/B is this template's own baseline; D matches ds-template-local, so
+# E/F/I/UP/B is this template's own baseline; D matches ds-template, so
 # code reads the same way in both repositories.
 select = ["E", "F", "I", "UP", "B", "D"]
 ignore = ["E203", "E266", "E501", "D100", "D104"]

@@ -88,7 +88,7 @@ dbt-run-container: ## Run dbt models inside the Airflow container
 	$(COMPOSE) exec airflow-scheduler bash -c \
 		"cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt"
 
-## ── Hand-off to ds-template-local ────────────────────────────────────────────
+## ── Hand-off to ds-template ────────────────────────────────────────────
 
 export: ## Export the configured marts to files for the DS project
 	$(LOAD_ENV) uv run python -m exporters.cli

@@ -125,7 +125,7 @@ To publish somewhere else, change the login and tag steps in that workflow.
 
 ## CI
 
-Three workflows, matching ds-template-local:
+Three workflows, matching ds-template:
 
 | Workflow | Runs | On |
 | --- | --- | --- |
