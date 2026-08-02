@@ -91,7 +91,7 @@ restart needed.
 
 ## Handing data to the DS project
 
-This template stops at the `marts` schema. [`ds-template-local`](https://github.com/marzimin/ds-template-local)
+This template stops at the `marts` schema. [`ds-template`](https://github.com/marzimin/ds-template)
 picks up from a file. `exporters/` is the seam:
 
 ```bash
@@ -133,7 +133,7 @@ make help       # every target
 | [`docs/architecture.md`](docs/architecture.md) | You want to understand how the pieces fit together and why |
 | [`docs/pipelines.md`](docs/pipelines.md) | You are writing extractors, loaders, or DAGs |
 | [`docs/dbt.md`](docs/dbt.md) | You are writing SQL models |
-| [`docs/handoff.md`](docs/handoff.md) | You are wiring this project into ds-template-local |
+| [`docs/handoff.md`](docs/handoff.md) | You are wiring this project into ds-template |
 | [`docs/operations.md`](docs/operations.md) | You are managing the containers, ports, or secrets |
 
 ---
@@ -163,6 +163,6 @@ make help       # every target
   settings in `dbt/dbt_project.yml`, and `docker/postgres/init.sh`. A test
   checks the first two agree.
 - **Explore the data.** `uv sync --group notebooks` adds Jupyter and pandas,
-  pointed at the same warehouse. Modelling belongs in `ds-template-local`.
+  pointed at the same warehouse. Modelling belongs in `ds-template`.
 - **Quality gates.** `make lint` runs Ruff, MyPy (strict), Bandit, and the
   standard file hygiene hooks. The same checks run in CI.
