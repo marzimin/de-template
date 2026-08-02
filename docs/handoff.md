@@ -1,7 +1,7 @@
-# Hand-off to ds-template-local
+# Hand-off to ds-template
 
 This project owns everything up to and including the `marts` schema.
-[`ds-template-local`](https://github.com/marzimin/ds-template-local) owns
+[`ds-template`](https://github.com/marzimin/ds-template) owns
 everything after. The seam is a file.
 
 ---
@@ -31,7 +31,7 @@ every awkward type (`uuid`, `jsonb`, arrays, `bytea`, `interval`) to prove the
 export is *faithful*; the other is training-shaped to prove it is *usable*.
 
 The distinction is the lesson: a mart that round-trips correctly is not
-automatically one a model can consume. ds-template-local needs numeric features
+automatically one a model can consume. ds-template needs numeric features
 with no missing values, so identifiers, timestamps and JSON blobs still have to
 be cast, encoded, or dropped — in dbt, where the decision is visible.
 
@@ -42,13 +42,13 @@ Both repositories checked out side by side:
 ```text
 ~/code/
 ├── de-template/            ← this project
-└── ds-template-local/      ← the DS project
+└── ds-template/      ← the DS project
 ```
 
 Set the destination in this project's `.env`:
 
 ```bash
-DS_DATA_RAW_DIR=/Users/you/code/ds-template-local/data/raw
+DS_DATA_RAW_DIR=/Users/you/code/ds-template/data/raw
 ```
 
 Declare what to export in `cfg/config.yaml`:
@@ -92,7 +92,7 @@ fine:
 | Source API | whatever it sends | `Item Name Length` |
 | This project's loader | `lower_snake` | `item_name_length` |
 | Exported file | `lower_snake` | `item_name_length` |
-| ds-template-local, on read | `UPPER_SNAKE` | `ITEM_NAME_LENGTH` |
+| ds-template, on read | `UPPER_SNAKE` | `ITEM_NAME_LENGTH` |
 
 The DS project re-normalises on read, so the round trip is lossless. What it
 means in practice: **`target_column` over there must be written in upper case**,
@@ -113,7 +113,7 @@ For Airflow to write into the DS project, the container needs that directory
 mounted. In `docker-compose.yml`, replace the `data/exports` mount:
 
 ```yaml
-    - /Users/you/code/ds-template-local/data/raw:/opt/airflow/data/exports
+    - /Users/you/code/ds-template/data/raw:/opt/airflow/data/exports
 ```
 
 The compose file already sets `DS_DATA_RAW_DIR=/opt/airflow/data/exports`, so
@@ -151,7 +151,7 @@ against a real Postgres. Run it with `make test-integration`.
 ### NULL versus empty string
 
 Both are written as an empty field by default, and pandas reads both as `NaN`.
-That is deliberate — it is what ds-template-local expects with no extra
+That is deliberate — it is what ds-template expects with no extra
 configuration. If you need to tell them apart, set a sentinel:
 
 ```yaml
@@ -165,7 +165,7 @@ and pass `na_values=["\\N"]` on the reading side.
 
 `exports.format` accepts both.
 
-**Use CSV** unless you have a reason not to. ds-template-local reads CSV out of
+**Use CSV** unless you have a reason not to. ds-template reads CSV out of
 the box.
 
 **Use Parquet** when the mart is large, or when you want types carried in the
@@ -201,7 +201,7 @@ To close the loop, mirror those constraints as Pandera checks in the DS
 project's `FEATURE_COLUMNS`, remembering the upper-case column names:
 
 ```python
-# ds-template-local: backend/src/schemas.py
+# ds-template: backend/src/schemas.py
 FEATURE_COLUMNS = {
     "ITEM_ID": Column(int, checks=Check.ge(0)),
     "ITEM_NAME_LENGTH": Column(int, checks=Check.ge(0)),
@@ -217,7 +217,7 @@ there when the file is read.
 
 This project has no `ml` dependency group and no MLflow. Feature engineering in
 SQL is fine and belongs in `dbt/models/`; anything that fits or scores a model
-belongs in ds-template-local, where the experiment tracking lives.
+belongs in ds-template, where the experiment tracking lives.
 
 `uv sync --group notebooks` gives you Jupyter and pandas here for exploring the
 warehouse — that is exploration, not modelling.
