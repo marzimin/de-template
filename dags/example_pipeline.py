@@ -53,7 +53,8 @@ def extract_and_load(source_name: str) -> int:
     extractor_class = import_from_path(source["extractor"])
 
     records = extractor_class().extract()
-    return PostgresLoader().load(records, table=source["target_table"])
+    loader = PostgresLoader(mode=source.get("load_mode", "append"))
+    return loader.load(records, table=source["target_table"])
 
 
 def run_dbt() -> None:

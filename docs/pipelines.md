@@ -98,16 +98,42 @@ What it does for you:
 Every column is created `TEXT`. That is deliberate — see
 [`architecture.md`](architecture.md#2-why-raw-data-is-stored-untyped).
 
-### It appends, it does not upsert
+### Load modes, and idempotency
 
-`load` has no deduplication. Running a pipeline twice loads the data twice.
-For the shipped daily schedule with a full-refresh mart that is harmless, but
-if you need idempotency you have two options:
+`load` has no upsert. Running a pipeline twice in the default `append` mode
+loads the data twice. Two ways to deal with that:
 
-- **Truncate first**, for small tables you re-fetch in full.
-- **Deduplicate in staging**, keeping the newest row per key with a window
-  function. This is usually the better answer: it preserves history in `raw` and
-  keeps the decision visible in SQL.
+**Deduplicate in staging** — usually the better answer. `raw` keeps the full
+history, and the choice of which row wins stays visible in SQL:
+
+```sql
+with ranked as (
+    select *, row_number() over (
+        partition by id order by updated_at desc
+    ) as row_num
+    from {{ source('raw', 'my_source') }}
+)
+select id as item_id, trim(name) as item_name
+from ranked
+where row_num = 1
+```
+
+**Or replace the table** — for small sources you re-fetch in full each run,
+where a snapshot is simpler than a history:
+
+```yaml
+# cfg/config.yaml
+sources:
+  my_source:
+    extractor: "extractors.api.my_source:MySourceExtractor"
+    target_table: "raw.my_source"
+    load_mode: "replace"     # default is "append"
+```
+
+The delete and the insert run in one transaction, so a failed insert cannot
+leave you with an empty table. An **empty extract is always a no-op**, in both
+modes — otherwise a transient API failure returning `[]` would wipe the table
+and the next dbt run would build marts from nothing.
 
 ---
 

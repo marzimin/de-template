@@ -1,6 +1,6 @@
 """Load extracted records into the warehouse's raw schema."""
 
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from sqlalchemy import text
@@ -14,6 +14,16 @@ from core.warehouse import (
 )
 
 log = structlog.get_logger()
+
+#: How a load treats rows already in the table.
+#:
+#:   ``append``   add to what is there. The default, and the right choice when
+#:                the source is a growing log you fetch incrementally. Running
+#:                the same pipeline twice loads the data twice, so deduplicate
+#:                in the staging model — see dbt/models/staging/.
+#:   ``replace``  empty the table first. For small sources you re-fetch in full
+#:                every run, where a snapshot is simpler than a history.
+LoadMode = Literal["append", "replace"]
 
 
 def _normalize_records(
@@ -65,21 +75,36 @@ class PostgresLoader:
         loader.load(records, table="raw.example_items")
     """
 
-    def __init__(self, engine: Engine | None = None) -> None:
+    def __init__(self, engine: Engine | None = None, mode: LoadMode = "append") -> None:
         """Configure the loader.
 
         Args:
             engine: Warehouse engine. Built from the environment when omitted.
-        """
-        self.engine = engine or engine_from_env()
+            mode: See :data:`LoadMode`. Set it per source via ``load_mode`` in
+                ``cfg/config.yaml`` rather than here.
 
-    def load(self, records: list[dict[str, Any]], table: str) -> int:
-        """Append records to a table, creating the schema and table if needed.
+        Raises:
+            ValueError: If ``mode`` is not a supported load mode.
+        """
+        if mode not in ("append", "replace"):
+            raise ValueError(
+                f"Unsupported load mode {mode!r}. Use 'append' or 'replace'."
+            )
+        self.engine = engine or engine_from_env()
+        self.mode: LoadMode = mode
+
+    def load(
+        self, records: list[dict[str, Any]], table: str, mode: LoadMode | None = None
+    ) -> int:
+        """Write records to a table, creating the schema and table if needed.
 
         Args:
-            records: Records to insert. An empty list is a no-op.
+            records: Records to insert. An empty list is a no-op — including in
+                ``replace`` mode, where truncating on an empty extract would
+                turn a transient API failure into data loss.
             table: Destination as ``schema.table``, or ``table`` to default to
                 the raw schema.
+            mode: Overrides the instance's mode for this call.
 
         Returns:
             The number of rows inserted.
@@ -88,11 +113,13 @@ class PostgresLoader:
             log.info("load_skipped", table=table, reason="empty records")
             return 0
 
+        effective_mode = mode or self.mode
         schema, tbl = split_relation(table, DEFAULT_SCHEMA)
         normalized_records, columns = _normalize_records(records)
         col_list = ", ".join(columns)
         placeholders = ", ".join(f":{col}" for col in columns)
 
+        # One transaction, so a failed insert cannot leave the table truncated.
         with self.engine.begin() as conn:
             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
             conn.execute(
@@ -101,6 +128,8 @@ class PostgresLoader:
                     f"({', '.join(f'{col} TEXT' for col in columns)})"
                 )
             )
+            if effective_mode == "replace":
+                conn.execute(text(f"DELETE FROM {schema}.{tbl}"))
             conn.execute(
                 text(
                     f"INSERT INTO {schema}.{tbl} ({col_list}) VALUES ({placeholders})"
@@ -108,5 +137,5 @@ class PostgresLoader:
                 normalized_records,
             )
 
-        log.info("load_complete", table=table, rows=len(records))
+        log.info("load_complete", table=table, rows=len(records), mode=effective_mode)
         return len(records)

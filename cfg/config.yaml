@@ -38,10 +38,19 @@ dbt:
 #
 # `target_table` is where the loader writes the untouched records. Keep these in
 # the raw schema; cleaning belongs in dbt, not in the loader.
+#
+# `load_mode` decides what happens to rows already in the table:
+#   append   (default) add to what is there. Right for a growing log you fetch
+#            incrementally — but running a pipeline twice loads the data twice,
+#            so deduplicate in the staging model.
+#   replace  empty the table first. Right for a small source you re-fetch in
+#            full every run. An empty extract is always a no-op, so a failed
+#            API call cannot wipe the table.
 sources:
   example_items:
     extractor: "extractors.api.example_api:ExampleApiExtractor"
     target_table: "raw.example_items"
+    load_mode: "append"
 
 # -----------------------------------------------------------------------------
 # Hand-off to the data science project

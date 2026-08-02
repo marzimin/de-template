@@ -132,10 +132,25 @@ Two tests guard the seam:
 Neither can check the DS project's `cfg/config.yaml`, since it is a separate
 repository. If you rename an exported file, update `data.input_file` there too.
 
-A stronger contract, if the pairing becomes load-bearing: declare the mart's
-columns in `dbt/models/marts/schema.yml` with `not_null`/`unique` tests, and
-mirror them as a Pandera schema in the DS project's `FEATURE_COLUMNS`. The two
-then fail on the same violation from opposite sides.
+### Declaring the columns
+
+`dbt/models/marts/schema.yml` describes every exported mart column with
+`not_null` / `unique` tests. That file is the contract on this side — a mart
+that violates it fails `make dbt-test` before the export runs.
+
+To close the loop, mirror those constraints as Pandera checks in the DS
+project's `FEATURE_COLUMNS`, remembering the upper-case column names:
+
+```python
+# ds-template-local: backend/src/schemas.py
+FEATURE_COLUMNS = {
+    "ITEM_ID": Column(int, checks=Check.ge(0)),
+    "ITEM_NAME_LENGTH": Column(int, checks=Check.ge(0)),
+}
+```
+
+The same violation then fails from both sides — here when dbt builds the table,
+there when the file is read.
 
 ---
 

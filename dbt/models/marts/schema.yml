@@ -1,0 +1,32 @@
+version: 2
+
+# Marts are the only layer read from outside dbt, so this file is a contract,
+# not just documentation. Anything exported to ds-template-local is described
+# here, and the tests below are what stop a broken mart reaching a model.
+#
+# Mirror these column constraints as Pandera checks in that project's
+# FEATURE_COLUMNS and the same violation fails from both sides — here when dbt
+# builds the table, there when the file is read. See docs/handoff.md.
+
+models:
+  - name: example_items
+    description: >
+      Starter mart used to verify dbt tests in a fresh clone. Exported to
+      example_items.csv for ds-template-local — see `exports:` in
+      cfg/config.yaml.
+    columns:
+      - name: item_id
+        description: Natural key. One row per item.
+        tests:
+          - not_null
+          - unique
+      - name: item_name
+        description: Cleaned display name.
+        tests:
+          - not_null
+      - name: item_name_length
+        description: >
+          Character count of item_name. Stands in for a real feature; a model
+          downstream would train on columns like this one.
+        tests:
+          - not_null
