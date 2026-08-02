@@ -102,15 +102,14 @@ def test_load_defaults_to_raw_schema_when_no_schema_given(mock_engine):
     assert any("CREATE TABLE IF NOT EXISTS raw.items" in s for s in executed_sql)
 
 
-def test_engine_from_env_uses_env_vars(monkeypatch):
-    monkeypatch.setenv("POSTGRES_HOST", "myhost")
-    monkeypatch.setenv("POSTGRES_PORT", "5433")
-    monkeypatch.setenv("WAREHOUSE_USER", "myuser")
-    monkeypatch.setenv("WAREHOUSE_PASSWORD", "mypass")
-    monkeypatch.setenv("WAREHOUSE_DB", "mydb")
+def test_builds_its_engine_from_the_environment_when_not_given_one():
+    """Engine construction lives in core.warehouse, shared with the exporter.
 
-    with patch("loaders.postgres_loader.create_engine") as mock_create:
-        PostgresLoader()
-        url = mock_create.call_args.args[0]
-        assert str(url) == "postgresql+psycopg2://myuser:***@myhost:5433/mydb"
-        assert url.password == "mypass"
+    The URL itself is covered in tests/test_core/test_warehouse.py; this only
+    checks the loader delegates rather than building its own.
+    """
+    with patch("loaders.postgres_loader.engine_from_env") as mock_engine_from_env:
+        loader = PostgresLoader()
+
+    mock_engine_from_env.assert_called_once_with()
+    assert loader.engine is mock_engine_from_env.return_value

@@ -1,0 +1,68 @@
+# =============================================================================
+# Project configuration. Everything the pipeline needs to know about your
+# warehouse, your sources, and where processed data is handed off lives here —
+# you should not need to edit Python to change any of it.
+#
+# Secrets do not belong here. Passwords and API keys go in `.env`, which is
+# never committed. This file is.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Warehouse layout
+# -----------------------------------------------------------------------------
+# These schema names must match three things: the schemas created by
+# docker/postgres/init.sh, the `+schema:` settings in dbt/dbt_project.yml, and
+# the `sources:` targets below. Change one and you must change all three.
+warehouse:
+  raw_schema: raw
+  staging_schema: staging
+  marts_schema: marts
+
+# -----------------------------------------------------------------------------
+# dbt
+# -----------------------------------------------------------------------------
+# Local paths are relative to the repository root. `container_dir` is where
+# docker-compose mounts dbt/ inside the Airflow containers — DAG tasks use that
+# one, `make dbt-run` uses the local pair.
+dbt:
+  project_dir: dbt
+  profiles_dir: dbt
+  container_dir: /opt/airflow/dbt
+
+# -----------------------------------------------------------------------------
+# Sources
+# -----------------------------------------------------------------------------
+# One entry per upstream system. `extractor` is an import path in
+# `module:ClassName` form, resolved at run time, so adding a source means adding
+# a class and a line here — no DAG edit and no import to wire up.
+#
+# `target_table` is where the loader writes the untouched records. Keep these in
+# the raw schema; cleaning belongs in dbt, not in the loader.
+sources:
+  example_items:
+    extractor: "extractors.api.example_api:ExampleApiExtractor"
+    target_table: "raw.example_items"
+
+# -----------------------------------------------------------------------------
+# Hand-off to the data science project
+# -----------------------------------------------------------------------------
+# Marts exported to files that ds-template-local reads from its `data/raw/`.
+# This is the seam between the two repositories: this project owns everything
+# up to and including `marts`, that project owns everything after the file.
+#
+#   destination — where the files are written. Relative paths resolve from this
+#                 repository root. Set DS_DATA_RAW_DIR in .env to point straight
+#                 at the DS project's data/raw/ instead, which is the usual
+#                 setup when both repositories are checked out side by side.
+#   format      — "csv" or "parquet". Use csv unless you have a reason not to:
+#                 ds-template-local reads csv out of the box, and parquet needs
+#                 its cfg/config.yaml pointed at the file explicitly.
+#   datasets    — one entry per file. `relation` is the mart to read,
+#                 `file_name` is what to call it on disk. The file name is what
+#                 you then set as `data.input_file` over in the DS project.
+exports:
+  destination: "data/exports"
+  format: "csv"
+  datasets:
+    - relation: "marts.example_items"
+      file_name: "example_items.csv"

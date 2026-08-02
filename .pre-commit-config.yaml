@@ -1,14 +1,54 @@
+default_language_version:
+  python: python3.12
+
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # dbt profiles are Jinja templates; the YAML parser chokes on the
+        # `{{ env_var(...) }}` expressions in them.
+        exclude: ^dbt/profiles\.yml$
+      - id: check-toml
+      - id: check-added-large-files
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.0
+    rev: v0.15.0
     hooks:
       - id: ruff
-        args: [--fix]
+        args: ["--fix"]
       - id: ruff-format
 
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.3
+    hooks:
+      - id: bandit
+        args:
+          - -c
+          - pyproject.toml
+          - --severity-level
+          - high
+          - -x
+          - .venv,tests
+
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.19.1
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests]
-        args: [--ignore-missing-imports]
+        # The hook runs in its own isolated environment, so anything whose types
+        # affect ours has to be listed here — tenacity in particular, or its
+        # @retry decorator reads as untyped and silently infers Any.
+        additional_dependencies:
+          [
+            types-requests,
+            types-PyYAML,
+            pydantic,
+            sqlalchemy,
+            structlog,
+            tenacity,
+            httpx,
+          ]
+        files: ^(core|extractors|loaders|exporters|dags)/
+        args: ["--config-file", "pyproject.toml"]

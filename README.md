@@ -1,363 +1,161 @@
-# Data Engineering Template
+# DE Template
 
-A ready-to-use starting point for data engineering and analytics projects. Clone this repository, follow the setup steps below, and you will have a fully working local environment — with a database, a pipeline scheduler, and a data transformation layer — running on your Mac in under an hour.
-
----
-
-## What is this?
-
-This template wires together four industry-standard tools so you do not have to do it yourself:
-
-| Tool | What it does |
-| --- | --- |
-| **Docker Desktop** | Runs your database and scheduler as isolated services on your laptop |
-| **PostgreSQL 16** | The database where your raw and processed data lives |
-| **Apache Airflow 3** | The scheduler that runs your data pipelines on a timetable |
-| **dbt** | Cleans and transforms raw data into analysis-ready tables |
-
-Your Python code (the part that fetches data from APIs and loads it into the database) lives in the `extractors/` and `loaders/` folders. Everything else is plumbing that this template handles for you.
-
----
-
-## How data flows through the system
+A starting point for data engineering projects: a warehouse, a scheduler, and a
+transformation layer running on your laptop, with a defined hand-off to the
+modelling work downstream.
 
 ```text
-External API
-     |
-     v
-extractors/          <-- your Python code fetches data here
-     |
-     v
-loaders/             <-- loads raw data into the database
-     |
-     v
-PostgreSQL (raw)     <-- untouched source data
-     |
-     v
-dbt models           <-- cleans and reshapes the data
-     |
-     v
-PostgreSQL (marts)   <-- final tables ready for analysis or dashboards
-     |
-     v
-Airflow DAG          <-- runs all of the above steps on a schedule
+cfg/config.yaml   ← configure your sources, schemas, and exports here
+extractors/       ← Python: pull data from APIs
+loaders/          ← Python: write raw records to Postgres
+dbt/              ← SQL: raw → staging → intermediate → marts
+exporters/        ← Python: marts → files for the DS project
+dags/             ← Airflow: run all of the above on a schedule
 ```
 
----
-
-## First steps after cloning this template
-
-Once you have created your own repository from this template, rename the project in three places before doing anything else:
-
-1. **`pyproject.toml`** — change `name = "de-template"` to your project name.
-
-2. **`dbt/dbt_project.yml`** — change `name: 'de_template'` and `profile: 'de_template'` to match (use underscores, no hyphens).
-
-3. **`dbt/profiles.yml`** — change the top-level key `de_template:` to the same name you used in step 2.
-
-These three values must be consistent. Everything else (Docker, Python packages, CI) works without renaming.
+In most cases you edit the first one and add a file to the second.
 
 ---
 
-## Before you start
+## Quick start
 
-You will need the following installed on your Mac. Each link goes to the official download or install page.
-
-1. **Docker Desktop** — [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
-   After installing, open the app and make sure the whale icon appears in your menu bar.
-
-2. **Homebrew** — open Terminal and run:
-
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-3. **uv** (Python environment manager) — in Terminal:
-
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-4. **Git** — in Terminal:
-
-   ```bash
-   brew install git
-   ```
-
-> If you are unsure whether any of these are already installed, open Terminal and type the tool name followed by `--version` (e.g. `docker --version`). If you see a version number, it is installed.
-
----
-
-## Setup — step by step
-
-### Step 1: Get the code onto your machine
-
-Open Terminal and run:
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/),
+[uv](https://docs.astral.sh/uv/) (`brew install uv`), and Git.
 
 ```bash
-git clone https://github.com/your-username/de-template.git
-cd de-template
+make setup
 ```
 
-> If you created a new repository from this template on GitHub, use your repository's URL instead.
+That copies `.env.example` to `.env`, installs the Python environment and git
+hooks, builds the Airflow image, initialises the metadata database, and starts
+every service.
+
+Then open **<http://localhost:8080>** and sign in with `admin` / `admin`.
+
+```bash
+make help    # every command, with a description
+```
 
 ---
 
-### Step 2: Create your environment file
+## What you get
 
-The `.env` file holds configuration values (database passwords, API keys) that should never be committed to Git. Create it by copying the example:
+Four containers and a warehouse:
 
-```bash
-cp .env.example .env
-```
+| Service | Port | What it does |
+| --- | --- | --- |
+| `postgres` | 5432 | The warehouse. Three schemas — `raw`, `staging`, `marts` — created on first start |
+| `airflow-api-server` | 8080 | The UI and REST API (replaces `webserver` from Airflow 2) |
+| `airflow-scheduler` | — | Decides what runs when |
+| `airflow-dag-processor` | — | Parses your DAG files; separate and required in Airflow 3 |
 
-Open `.env` in a text editor. The defaults will work for local development. If you have an API key for a data source, add it here.
+And a worked example that runs end to end: `example_pipeline` extracts from an
+API, loads to `raw`, builds three dbt models, and exports the mart to a file.
 
----
-
-### Step 3: Set up your Python environment
-
-```bash
-uv sync --group dev
-```
-
-This downloads all the Python packages the project needs and puts them in an isolated environment so they do not interfere with anything else on your machine.
-
----
-
-### Step 4: Install pre-commit hooks
-
-```bash
-uv run pre-commit install
-```
-
-This sets up automatic code quality checks that run every time you make a commit. They catch common mistakes (formatting, typos, unused imports) before the code reaches GitHub.
-
-> **Note:** The ruff hook runs with `--fix`, which means it will **automatically modify your files** to resolve lint issues before completing the commit. If this happens, re-stage the changed files (`git add -u`) and run `git commit` again.
-
----
-
-### Step 5: Start the database and Airflow
-
-Run this once the very first time. It builds the Airflow image (installs dbt and the
-project's Python packages inside it) and creates the metadata tables Airflow needs
-internally. The first build downloads a lot, so it can take a few minutes:
-
-```bash
-docker compose up airflow-init --build
-```
-
-Wait for it to print `Database migrating done!` and exit. Then start all services:
-
-```bash
-docker compose up -d
-```
-
-The `-d` flag runs everything in the background. Docker Desktop will show you four
-running containers: `postgres`, `airflow-api-server`, `airflow-scheduler`, and
-`airflow-dag-processor`.
-
-> **Why four containers?** Airflow 3 splits responsibilities: the **api-server** serves
-> the web UI and REST API, the **scheduler** decides what to run, and the
-> **dag-processor** (new and required in Airflow 3) parses your DAG files. All three
-> are started for you by `docker compose up`.
-
----
-
-### Step 6: Verify everything is working
-
-Open your browser and go to **<http://localhost:8080>**
-
-You should see the Airflow login screen. Sign in with:
-
-- Username: `admin`
-- Password: `admin`
-
-> **How login works:** Airflow 3 replaced the old `airflow users` system with the
-> built-in *SimpleAuthManager*. This template ships a pre-seeded password file
-> (`docker/airflow/simple_auth_manager_passwords.json`) so the login is a stable
-> `admin` / `admin` instead of a random password printed in the logs. This is for
-> **local development only** — do not use it as-is in a shared or production environment.
-
-You can also connect VS Code to the database directly using the SQLTools extension —
-host `localhost`, port `5432`, user `de_user`, password `de_password`, database
-`warehouse`. (These values come from `.env`; the database user and the `raw` /
-`staging` / `marts` schemas are created automatically by
-`docker/postgres/init.sh` the first time Postgres starts.)
+> **The bundled example points at a placeholder API.** Its `extract_and_load`
+> task is *expected* to fail until you swap in a real source and key. The DAG
+> still parses and appears in the UI. Use it as a copy-paste starting point,
+> then delete it.
 
 ---
 
 ## Adding your first data source
 
-1. **Copy the example extractor** — duplicate `extractors/api/example_api.py` and rename it for your source (e.g. `stripe_api.py`).
+1. **Copy the example extractor.** Duplicate `extractors/api/example_api.py`,
+   rename it for your source, change `BASE_URL`, and make `extract` return a
+   flat list of dicts.
 
-2. **Edit the new file** — change `BASE_URL` to your API's base URL and update the `extract` method to call the right endpoint. The method should return a list of dictionaries (one per record).
+2. **Add your API key** to `.env`, and read it with `os.environ["..."]`.
 
-3. **Add your API key** — open `.env` and add a line like `STRIPE_API_KEY=sk_live_...`, then reference it in your extractor with `os.environ["STRIPE_API_KEY"]`.
+3. **Register it in `cfg/config.yaml`:**
 
-4. **Add any new packages to `requirements-airflow.txt`** — if your extractor uses a Python package that is not already listed there (e.g. `boto3`, `stripe`), add it. This file is what gets installed inside the Docker container, so Airflow tasks will fail if a package is missing from it. Your local environment is managed separately by `pyproject.toml`.
-
-5. **Create a DAG** — duplicate `dags/example_pipeline.py`, update it to import and call your new extractor, and set the schedule you want (e.g. `@hourly`, `@daily`).
-
-   The `dags/`, `extractors/`, and `loaders/` folders are mounted into the containers,
-   so **new and edited `.py` files are picked up automatically** within a minute — no
-   restart needed.
-
-6. **If you added a new Python package** to `requirements-airflow.txt`, the image must be
-   rebuilt for Airflow to see it:
-
-   ```bash
-   docker compose up -d --build
+   ```yaml
+   sources:
+     stripe_charges:
+       extractor: "extractors.api.stripe_api:StripeExtractor"
+       target_table: "raw.stripe_charges"
    ```
 
-> **About the bundled example:** `example_pipeline` points at a placeholder API
-> (`api.example.com`) and reads `EXAMPLE_API_KEY` from `.env`. Its `extract_and_load`
-> task is **expected to fail** if you trigger it until you swap in a real API and key —
-> the DAG itself still parses and appears in the UI. Use it as a copy-paste starting
-> point, then delete it once you have your own.
+4. **Point a DAG at it** — copy `dags/example_pipeline.py` and set
+   `SOURCE_NAME` to the key you just added.
+
+5. **If you added a Python package,** put it in *both* `pyproject.toml` and
+   `requirements-airflow.txt`, then `make build`. A test enforces that the two
+   agree, so you cannot forget one.
+
+`dags/`, `core/`, `extractors/`, `loaders/`, `exporters/`, `cfg/` and `dbt/` are
+all bind-mounted, so edits to existing files are picked up within a minute — no
+restart needed.
 
 ---
 
-## Adding dbt models
+## Handing data to the DS project
 
-dbt models are SQL files that live in `dbt/models/`. The folder structure follows a three-layer pattern:
+This template stops at the `marts` schema. [`ds-template-local`](https://github.com/marzimin/ds-template-local)
+picks up from a file. `exporters/` is the seam:
 
-| Layer | Folder | Purpose |
+```bash
+make export
+```
+
+Set `DS_DATA_RAW_DIR` in `.env` to that project's `data/raw/` and the files land
+where it already looks for them. See [`docs/handoff.md`](docs/handoff.md) for the
+full setup, including running it as the last task of a DAG.
+
+---
+
+## Commands
+
+```bash
+make setup      # install everything and start the stack
+make up         # start services      make down     # stop them
+make logs       # follow the logs     make reset    # wipe and start fresh
+make dbt-run    # build the models    make dbt-test # test them
+make export     # write marts out for the DS project
+make test       # run the test suite
+make lint       # run every pre-commit hook
+make help       # every target
+```
+
+---
+
+## Documentation
+
+| Document | Read it when |
+| --- | --- |
+| [`docs/architecture.md`](docs/architecture.md) | You want to understand how the pieces fit together and why |
+| [`docs/pipelines.md`](docs/pipelines.md) | You are writing extractors, loaders, or DAGs |
+| [`docs/dbt.md`](docs/dbt.md) | You are writing SQL models |
+| [`docs/handoff.md`](docs/handoff.md) | You are wiring this project into ds-template-local |
+| [`docs/operations.md`](docs/operations.md) | You are managing the containers, ports, or secrets |
+
+---
+
+## When something looks wrong
+
+| Symptom | Likely cause | Try |
 | --- | --- | --- |
-| Staging | `dbt/models/staging/` | Rename columns, cast data types, filter bad rows |
-| Intermediate | `dbt/models/intermediate/` | Join staging models together |
-| Marts | `dbt/models/marts/` | Final tables — one per business question or dashboard |
-
-Models land in exactly the schema named by their `+schema:` setting in
-`dbt/dbt_project.yml` (so `marts` models go to the `marts` schema, matching the schemas
-created in `init.sh`). This is handled by `dbt/macros/generate_schema_name.sql`, which
-overrides dbt's default behaviour of prefixing the schema name.
-
-To create a new model, add a `.sql` file to the appropriate folder.
-
-dbt reads the database connection from the `WAREHOUSE_*` variables (user, password,
-database) plus `POSTGRES_HOST` / `POSTGRES_PORT` (see `dbt/profiles.yml`). The easiest
-way to run it is **inside the Airflow container**, where those variables are already set:
-
-```bash
-make dbt-run-container
-```
-
-To run dbt **from your laptop** instead, load the variables from `.env` first, then call dbt
-(this is what `make dbt-run` does, minus the `source` step):
-
-```bash
-set -a && source .env && set +a
-uv run dbt run --project-dir dbt/ --profiles-dir dbt/
-```
+| Containers will not start | Docker Desktop is not running | Check the whale icon; run `docker info` |
+| Port 5432 or 8080 in use | Something else has it | `lsof -i :5432`, or change the mapping in `docker-compose.yml` |
+| `uv: command not found` | Shell has not reloaded | Reopen the terminal, or `source ~/.zshrc` |
+| Airflow shows no DAGs | The file failed to parse | `docker compose logs airflow-dag-processor`, or run `make test` — `tests/test_dags.py` catches this |
+| A task fails with `ModuleNotFoundError` | Package missing from the image | Add it to `requirements-airflow.txt` and `make build` |
+| UI does not load, containers restarting | A typo in an `AIRFLOW__…` setting | `docker compose ps`, then `docker compose logs airflow-api-server` |
+| `permission denied for schema public` on init | Volume predates the `init.sh` fix | `make reset` (deletes local data) |
+| `make export` writes nowhere useful | `DS_DATA_RAW_DIR` unset | Set it in `.env`, or collect the files from `data/exports/` |
+| Commit fails with `pre-commit not found` | Hook points at a deleted virtualenv | `make hooks` |
 
 ---
 
-## Activating the data science layer
+## Making it your own
 
-The notebooks and machine learning packages are installed only when you need them, keeping the default environment lean.
-
-```bash
-# Add Jupyter and pandas
-uv sync --group notebooks
-
-# Add scikit-learn, XGBoost, and MLflow
-uv sync --group ml
-
-# Launch Jupyter
-uv run jupyter lab
-```
-
-Notebooks connect to the same local PostgreSQL database, so you can query your processed data directly.
-
----
-
-## Stopping and starting services
-
-```bash
-# Stop all services (data is preserved)
-docker compose down
-
-# Start them again
-docker compose up -d
-
-# Stop and delete all data (fresh start)
-docker compose down -v
-```
-
----
-
-## Project structure
-
-```text
-de-template/
-│
-├── dags/                        Airflow pipeline definitions
-├── dbt/                         SQL transformation models
-│   └── models/
-│       ├── staging/             Raw → cleaned
-│       ├── intermediate/        Joins and business logic
-│       └── marts/               Final analytical tables
-├── extractors/                  Python code that fetches data from APIs
-├── loaders/                     Python code that writes data to PostgreSQL
-├── docker/                      Airflow Dockerfile, Postgres init SQL, auth password file
-├── docs/                        Project documentation and setup guides
-├── tests/                       Automated tests
-├── notebooks/                   Jupyter notebooks (activate when needed)
-├── scripts/                     Helper shell scripts
-├── .env.example                 Template for your local configuration
-├── docker-compose.yml           Defines all Docker services
-├── requirements-airflow.txt     Python packages installed inside Airflow containers
-├── pyproject.toml               Python project and dependency configuration
-└── Makefile                     Convenience commands (make lint, make test, make up, …)
-```
-
----
-
-## Running the test suite
-
-```bash
-uv run pytest
-```
-
-Tests live in `tests/`. Add tests for your extractors in `tests/test_extractors/` and for your loaders in `tests/test_loaders/`.
-
----
-
-## One-command bootstrap (alternative to the steps above)
-
-If you want to do everything in a single command:
-
-```bash
-bash scripts/init_dev.sh
-```
-
-This script runs Steps 2–5 automatically.
-
----
-
-## Troubleshooting
-
-**Docker containers won't start**
-Make sure Docker Desktop is open and the whale icon is visible in the menu bar. Run `docker info` in Terminal — if you see an error, Docker is not running.
-
-**Port 5432 or 8080 is already in use**
-Another application is using that port. To find it: `lsof -i :5432` (or `:8080`). You can either stop that application or change the port mapping in `docker-compose.yml`.
-
-**`uv` command not found**
-Close Terminal, reopen it, and try again. If that does not help, run `source ~/.zshrc` (or `~/.bash_profile`) to reload your shell configuration.
-
-**Airflow shows no DAGs**
-DAG files are parsed by the `airflow-dag-processor` container. Make sure your file is
-saved in the `dags/` folder and has no Python syntax errors. Check the processor's logs
-for parse errors with `docker compose logs airflow-dag-processor`, or test the file
-locally first with `uv run python dags/your_dag.py` (no output means it parsed cleanly).
-
-**The web UI / login does not load (`docker compose up` shows containers restarting)**
-Check which container is failing with `docker compose ps` and read its logs, e.g.
-`docker compose logs airflow-api-server`. If you changed any `AIRFLOW__...` setting in
-`docker-compose.yml`, a typo there is the usual cause.
-
-**`docker compose up airflow-init` fails with "permission denied for schema public"**
-This means the Postgres data volume was created before the `init.sh` fix. Reset it with
-`docker compose down -v` (this deletes local data) and run Step 5 again.
+- **Rename the project.** Three values must agree: `name` in `pyproject.toml`,
+  and `name` + `profile` in `dbt/dbt_project.yml` (underscores, no hyphens),
+  matched by the top-level key in `dbt/profiles.yml`.
+- **Change the schemas.** Edit `warehouse:` in `cfg/config.yaml`, the `+schema:`
+  settings in `dbt/dbt_project.yml`, and `docker/postgres/init.sh`. A test
+  checks the first two agree.
+- **Explore the data.** `uv sync --group notebooks` adds Jupyter and pandas,
+  pointed at the same warehouse. Modelling belongs in `ds-template-local`.
+- **Quality gates.** `make lint` runs Ruff, MyPy (strict), Bandit, and the
+  standard file hygiene hooks. The same checks run in CI.

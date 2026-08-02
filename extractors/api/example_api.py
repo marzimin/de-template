@@ -1,3 +1,5 @@
+"""Worked example of a REST API extractor. Copy it for your own sources."""
+
 import os
 from typing import Any
 
@@ -14,14 +16,20 @@ class ExampleApiExtractor(BaseExtractor):
     """Concrete extractor for a REST API.
 
     Copy and adapt this class for each new API source:
-    1. Set BASE_URL and any required headers
-    2. Implement `extract` to call the endpoint(s) you need
-    3. Return a flat list of dicts — one dict per record
+
+    1. Set ``BASE_URL`` and any required headers.
+    2. Implement ``extract`` to call the endpoint(s) you need.
+    3. Return a flat list of dicts — one dict per record.
+    4. Register it under ``sources:`` in ``cfg/config.yaml``.
+
+    Points at a placeholder host, so calling it fails until you swap in a real
+    API and key. That is expected of the shipped example.
     """
 
     BASE_URL = "https://api.example.com/v1"
 
     def __init__(self) -> None:
+        """Build an authenticated HTTP client from ``EXAMPLE_API_KEY``."""
         self.api_key = os.environ["EXAMPLE_API_KEY"]
         self.client = httpx.Client(
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -34,13 +42,28 @@ class ExampleApiExtractor(BaseExtractor):
     def _get(
         self, path: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
+        """GET one path, retrying with exponential backoff on failure.
+
+        Args:
+            path: Path appended to :attr:`BASE_URL`.
+            params: Optional query string parameters.
+
+        Returns:
+            The decoded JSON response.
+        """
         url = f"{self.BASE_URL}{path}"
         log.info("api_request", url=url, params=params)
         response = self.client.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        records: list[dict[str, Any]] = response.json()
+        return records
 
     def extract(self) -> list[dict[str, Any]]:
+        """Fetch every item from the API.
+
+        Returns:
+            One dict per item.
+        """
         records = self._get("/items")
         log.info("extracted", count=len(records))
         return records
