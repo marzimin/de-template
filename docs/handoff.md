@@ -19,6 +19,22 @@ one for a dashboard. Point dashboards at `marts` directly.
 
 ---
 
+## See it work first
+
+```bash
+make demo-handoff
+```
+
+That builds two marts in a throwaway Postgres, exports both, and checks the
+results — no setup, and nothing touched in either project. One mart carries
+every awkward type (`uuid`, `jsonb`, arrays, `bytea`, `interval`) to prove the
+export is *faithful*; the other is training-shaped to prove it is *usable*.
+
+The distinction is the lesson: a mart that round-trips correctly is not
+automatically one a model can consume. ds-template-local needs numeric features
+with no missing values, so identifiers, timestamps and JSON blobs still have to
+be cast, encoded, or dropped — in dbt, where the decision is visible.
+
 ## Setup
 
 Both repositories checked out side by side:
@@ -105,6 +121,46 @@ nothing else changes. Restart with `make up`.
 
 ---
 
+## How types survive the trip
+
+CSV holds only text, so every value the database returns has to become a string.
+Left to itself Python's `csv` module calls `str()`, which is wrong for half the
+types a dbt mart can produce — `str()` on a binary column gives
+`<memory at 0x7f3c...>`, losing the bytes *and* changing between runs, so two
+exports of identical data diff as changed.
+
+`exporters/serialisation.py` decides these conversions explicitly:
+
+| Postgres type | In the CSV | Read it back with |
+| --- | --- | --- |
+| `integer`, `double precision` | `42`, `3.14159` | as-is |
+| `numeric` | `1234.5678` — full precision, not the float | `Decimal(...)` |
+| `boolean` | `True` / `False` | pandas gives a real `bool` dtype |
+| `text` | quoted when it contains `,` `"` or newlines | as-is |
+| `date`, `timestamp`, `timestamptz` | ISO 8601, e.g. `2024-03-01T12:34:56+00:00` | `pd.to_datetime` |
+| `interval` | ISO 8601 duration, `P1DT2H3M4S` | `pd.Timedelta` / `isodate` |
+| `uuid` | `11111111-2222-...` | `UUID(...)` |
+| `jsonb` | valid JSON with double quotes | `json.loads` |
+| arrays | valid JSON, `[1, 2, 3]` | `json.loads` |
+| `bytea` | lowercase hex, `deadbeef` | `bytes.fromhex(...)` |
+| `NULL` | empty (configurable) | pandas gives `NaN` |
+
+`tests/test_exporters/test_postgres_types.py` asserts each row of that table
+against a real Postgres. Run it with `make test-integration`.
+
+### NULL versus empty string
+
+Both are written as an empty field by default, and pandas reads both as `NaN`.
+That is deliberate — it is what ds-template-local expects with no extra
+configuration. If you need to tell them apart, set a sentinel:
+
+```yaml
+exports:
+  null_sentinel: "\\N"
+```
+
+and pass `na_values=["\\N"]` on the reading side.
+
 ## CSV or Parquet
 
 `exports.format` accepts both.
@@ -112,10 +168,13 @@ nothing else changes. Restart with `make up`.
 **Use CSV** unless you have a reason not to. ds-template-local reads CSV out of
 the box.
 
-**Use Parquet** when the mart is large, or when types matter enough that you do
-not want the DS side re-inferring them from strings. Note that the exporter
-buffers the whole relation in memory for Parquet — see the docstring on
-`_write_parquet` for why, and what to change if your mart does not fit.
+**Use Parquet** when the mart is large, or when you want types carried in the
+file rather than re-inferred from text — `numeric` stays `decimal128`, dates
+stay `date32`, `bytea` stays `binary`. Two caveats: the exporter buffers the
+whole relation in memory for Parquet (see the docstring on `_write_parquet`),
+and JSON columns are stored as JSON text rather than Arrow structs, because
+struct inference is built from the first rows and fails on a later row with
+different keys.
 
 ---
 

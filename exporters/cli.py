@@ -15,6 +15,7 @@ from sqlalchemy.engine import Engine
 
 from core.config import read_config, resolve_project_path, warehouse_schemas
 from exporters.mart_exporter import ExportFormat, MartExporter
+from exporters.serialisation import DEFAULT_NULL_SENTINEL
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -71,6 +72,7 @@ def export_all(
 
     destination = export_destination(config)
     export_format: ExportFormat = exports.get("format", "csv")
+    null_sentinel = str(exports.get("null_sentinel", DEFAULT_NULL_SENTINEL))
     marts_schema = warehouse_schemas(config)["marts"]
 
     written: list[Path] = []
@@ -82,6 +84,7 @@ def export_all(
             export_format=export_format,
             default_schema=marts_schema,
             engine=engine,
+            null_sentinel=null_sentinel,
         )
         written.append(exporter.export())
         # Reuse one engine across datasets rather than opening a pool per file.
@@ -110,12 +113,15 @@ def main() -> None:
 
     config = read_config()
 
+    exports = config.get("exports", {}) or {}
+
     if args.relation:
         exporter = MartExporter(
             relation=args.relation,
             destination=export_destination(config),
-            export_format=(config.get("exports", {}) or {}).get("format", "csv"),
+            export_format=exports.get("format", "csv"),
             default_schema=warehouse_schemas(config)["marts"],
+            null_sentinel=str(exports.get("null_sentinel", DEFAULT_NULL_SENTINEL)),
         )
         paths = [exporter.export()]
     else:

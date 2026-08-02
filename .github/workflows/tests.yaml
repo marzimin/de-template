@@ -17,6 +17,25 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
 
+    # The exporter's type handling depends on what psycopg2 returns for a
+    # bytea, a jsonb, an interval — a property of the driver, not of our code.
+    # Only a real Postgres can tell you, so CI gets one.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DE_TEST_POSTGRES_URL: postgresql+psycopg2://postgres:test@localhost:5432/postgres
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

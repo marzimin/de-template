@@ -66,12 +66,18 @@ sources:
 #   format      — "csv" or "parquet". Use csv unless you have a reason not to:
 #                 ds-template-local reads csv out of the box, and parquet needs
 #                 its cfg/config.yaml pointed at the file explicitly.
+#   null_sentinel — what a SQL NULL becomes in CSV. Empty is what pandas reads
+#                 as NaN with no extra configuration, so it is the default. The
+#                 cost is that a genuine empty string looks identical to NULL;
+#                 set something like "\\N" if you need to tell them apart, and
+#                 pass na_values on the reading side to match.
 #   datasets    — one entry per file. `relation` is the mart to read,
 #                 `file_name` is what to call it on disk. The file name is what
 #                 you then set as `data.input_file` over in the DS project.
 exports:
   destination: "data/exports"
   format: "csv"
+  null_sentinel: ""
   datasets:
     - relation: "marts.example_items"
       file_name: "example_items.csv"
