@@ -2,17 +2,15 @@ version: 2
 
 models:
   - name: stg_example_items
-    description: Starter staging model used to verify dbt runs in a fresh clone.
+    description: >
+      Starter staging model used to verify dbt runs in a fresh clone.
+      One model per raw table: rename, cast, filter. Never joins.
     columns:
       - name: item_id
+        description: Natural key from the source system.
         tests:
           - not_null
           - unique
-
-  - name: example_items
-    description: Starter mart model used to verify dbt tests in a fresh clone.
-    columns:
-      - name: item_id
+      - name: item_name
         tests:
           - not_null
-          - unique

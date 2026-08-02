@@ -30,11 +30,29 @@ x-airflow-common: &airflow-common
     _PIP_ADDITIONAL_REQUIREMENTS: ""
     # Override .env for container networking — inside Docker, postgres is the service hostname
     POSTGRES_HOST: postgres
+
+    # The project packages are bind-mounted under /opt/airflow rather than
+    # pip-installed, so that directory has to be importable. Airflow only puts
+    # dags/, plugins/, and config/ on sys.path by itself.
+    PYTHONPATH: /opt/airflow
+    # Pin the root explicitly so core.config resolves cfg/ and data/ from the
+    # mount point rather than inferring it from the package's depth on disk.
+    DE_PROJECT_ROOT: /opt/airflow
+    # Written to by the export task; matches the data/exports mount below.
+    DS_DATA_RAW_DIR: /opt/airflow/data/exports
   volumes:
     - ./dags:/opt/airflow/dags
+    - ./core:/opt/airflow/core
     - ./extractors:/opt/airflow/extractors
     - ./loaders:/opt/airflow/loaders
+    - ./exporters:/opt/airflow/exporters
+    - ./cfg:/opt/airflow/cfg
     - ./dbt:/opt/airflow/dbt
+    # Where the export task writes. To have Airflow write straight into the DS
+    # project instead, point this at its data/raw and set DS_DATA_RAW_DIR to
+    # /opt/airflow/data/exports in .env:
+    #   - /Users/you/code/ds-template-local/data/raw:/opt/airflow/data/exports
+    - ./data/exports:/opt/airflow/data/exports
     - ./docker/airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json
     - airflow_logs:/opt/airflow/logs
   depends_on:

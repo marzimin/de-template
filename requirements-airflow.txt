@@ -1,9 +1,13 @@
 # Dependencies installed inside the Airflow Docker image.
 # Mirrors the core runtime deps from pyproject.toml — managed separately
-# because Airflow uses pip internally, not uv.
+# because the Airflow image uses pip internally, not uv.
 #
-# IMPORTANT: Keep versions in sync with pyproject.toml [project.dependencies].
-# When adding or updating a package here, update pyproject.toml as well.
+# apache-airflow itself is deliberately absent: the base image pins it, and
+# reinstalling it here would fight that pin.
+#
+# These two files must not drift. tests/test_requirements_sync.py enforces it,
+# so a mismatch fails the build rather than surfacing as a missing module in a
+# task log weeks later.
 
 apache-airflow-providers-standard>=1.0.0
 dbt-postgres>=1.8.0
@@ -13,5 +17,7 @@ requests>=2.31.0
 httpx>=0.27.0
 python-dotenv>=1.0.0
 pydantic>=2.7.0
+pyyaml>=6.0
+pyarrow>=23.0.1
 tenacity>=8.3.0
 structlog>=24.0.0

@@ -8,8 +8,31 @@
             trim(name)  as item_name
         from {{ source('raw', 'example_items') }}
 
-    (define the `raw` source in a schema.yml `sources:` block first). This text is
-    a Jinja comment, so the source() reference above is NOT evaluated by dbt.
+    (define the `raw` source in a schema.yml `sources:` block first).
+
+    DEDUPLICATION. The loader appends by default, so re-running a pipeline
+    loads the same rows again. Keep the newest row per key here rather than
+    truncating the raw table — raw keeps the history, and the choice of which
+    row wins stays visible in SQL:
+
+        with ranked as (
+            select
+                *,
+                row_number() over (
+                    partition by id
+                    order by updated_at desc
+                ) as row_num
+            from {{ source('raw', 'example_items') }}
+        )
+        select id as item_id, trim(name) as item_name
+        from ranked
+        where row_num = 1
+
+    Set `load_mode: replace` in cfg/config.yaml instead when the source is
+    small enough to re-fetch in full and you want a snapshot, not a history.
+
+    This text is a Jinja comment, so the source() references above are NOT
+    evaluated by dbt.
 #}
 select
     1 as item_id,

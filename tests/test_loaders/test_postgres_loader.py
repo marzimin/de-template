@@ -102,15 +102,81 @@ def test_load_defaults_to_raw_schema_when_no_schema_given(mock_engine):
     assert any("CREATE TABLE IF NOT EXISTS raw.items" in s for s in executed_sql)
 
 
-def test_engine_from_env_uses_env_vars(monkeypatch):
-    monkeypatch.setenv("POSTGRES_HOST", "myhost")
-    monkeypatch.setenv("POSTGRES_PORT", "5433")
-    monkeypatch.setenv("WAREHOUSE_USER", "myuser")
-    monkeypatch.setenv("WAREHOUSE_PASSWORD", "mypass")
-    monkeypatch.setenv("WAREHOUSE_DB", "mydb")
+def test_append_mode_does_not_clear_the_table(mock_engine):
+    engine, conn = mock_engine
+    loader = PostgresLoader(engine=engine)
 
-    with patch("loaders.postgres_loader.create_engine") as mock_create:
-        PostgresLoader()
-        url = mock_create.call_args.args[0]
-        assert str(url) == "postgresql+psycopg2://myuser:***@myhost:5433/mydb"
-        assert url.password == "mypass"
+    loader.load([{"id": "1"}], table="raw.items")
+
+    executed_sql = [str(c.args[0]) for c in conn.execute.call_args_list]
+    assert not any("DELETE FROM" in s for s in executed_sql)
+
+
+def test_replace_mode_clears_the_table_before_inserting(mock_engine):
+    engine, conn = mock_engine
+    loader = PostgresLoader(engine=engine, mode="replace")
+
+    loader.load([{"id": "1"}], table="raw.items")
+
+    executed_sql = [str(c.args[0]) for c in conn.execute.call_args_list]
+    delete_index = next(i for i, s in enumerate(executed_sql) if "DELETE FROM" in s)
+    insert_index = next(i for i, s in enumerate(executed_sql) if "INSERT INTO" in s)
+
+    assert "DELETE FROM raw.items" in executed_sql[delete_index]
+    assert delete_index < insert_index
+    # Both run inside one transaction, so a failed insert cannot leave the
+    # table empty.
+    assert engine.begin.call_count == 1
+
+
+def test_mode_can_be_overridden_per_call(mock_engine):
+    engine, conn = mock_engine
+    loader = PostgresLoader(engine=engine)
+
+    loader.load([{"id": "1"}], table="raw.items", mode="replace")
+
+    executed_sql = [str(c.args[0]) for c in conn.execute.call_args_list]
+    assert any("DELETE FROM raw.items" in s for s in executed_sql)
+
+
+def test_replace_mode_leaves_the_table_alone_when_there_is_nothing_to_load(
+    mock_engine,
+):
+    """An empty extract must not wipe the table.
+
+    Otherwise a transient API failure returning [] turns into data loss, and
+    the next dbt run builds marts from nothing.
+    """
+    engine, _ = mock_engine
+    loader = PostgresLoader(engine=engine, mode="replace")
+
+    assert loader.load([], table="raw.items") == 0
+    engine.begin.assert_not_called()
+
+
+def test_rejects_an_unsupported_load_mode(mock_engine):
+    engine, _ = mock_engine
+
+    with pytest.raises(ValueError, match="Unsupported load mode"):
+        PostgresLoader(engine=engine, mode="upsert")
+
+
+def test_configured_load_modes_are_supported():
+    """cfg/config.yaml must not name a mode the loader will reject at run time."""
+    from core.config import read_config
+
+    for source in read_config()["sources"].values():
+        assert source.get("load_mode", "append") in ("append", "replace")
+
+
+def test_builds_its_engine_from_the_environment_when_not_given_one():
+    """Engine construction lives in core.warehouse, shared with the exporter.
+
+    The URL itself is covered in tests/test_core/test_warehouse.py; this only
+    checks the loader delegates rather than building its own.
+    """
+    with patch("loaders.postgres_loader.engine_from_env") as mock_engine_from_env:
+        loader = PostgresLoader()
+
+    mock_engine_from_env.assert_called_once_with()
+    assert loader.engine is mock_engine_from_env.return_value

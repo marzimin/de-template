@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies (incl. dev)
+        run: uv sync --group dev
+
+      # Lint, format and type checks run in the pre-commit workflow, from the
+      # same hook definitions developers get locally. Duplicating them here
+      # would let the two drift.
+      - name: Run tests (pytest)
+        run: uv run pytest --junitxml=test-output.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-output.xml

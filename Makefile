@@ -1,55 +1,96 @@
-.PHONY: install lint format typecheck test check up down logs build dbt-run dbt-test
+# Convenience entry points for the common tasks. `make` on its own lists them.
+#
+# The Python project is rooted here and managed by uv; the runtime services
+# (Postgres + Airflow 3) run under docker compose.
 
-## ── Local dev ────────────────────────────────────────────────────────────────
+PYTHON_VERSION ?= 3.12
+AIRFLOW_PORT ?= 8080
+POSTGRES_PORT ?= 5432
+DBT_DIR := dbt
+COMPOSE := docker compose
 
-install:
+# Local dbt and export targets need WAREHOUSE_*/POSTGRES_* in the environment.
+# `.env` is the single source for them; load it if it exists.
+LOAD_ENV = set -a; [ -f .env ] && . ./.env || true; set +a;
+
+.DEFAULT_GOAL := help
+.PHONY: help setup install hooks lint format typecheck test check \
+        up down logs build airflow-init reset \
+        dbt-run dbt-test dbt-run-container export clean
+
+help: ## Show this help
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+## ── Setup ────────────────────────────────────────────────────────────────────
+
+setup: ## One-command bootstrap: env file, Python deps, hooks, Docker services
+	PYTHON_VERSION=$(PYTHON_VERSION) ./scripts/init_dev.sh
+
+install: ## Install the Python environment and git hooks only (no Docker)
 	uv sync --group dev
 	uv run pre-commit install
 
-lint:
-	uv run ruff check .
+hooks: ## (Re)install the git pre-commit hook
+	uv run pre-commit install
 
-format:
+## ── Checks ───────────────────────────────────────────────────────────────────
+
+lint: ## Run every pre-commit hook across the repository
+	uv run pre-commit run --all-files
+
+format: ## Format the codebase with Ruff
 	uv run ruff format .
 
-typecheck:
-	uv run mypy extractors/ loaders/ dags/
+typecheck: ## Type-check with mypy
+	uv run mypy core/ extractors/ loaders/ exporters/ dags/
 
-test:
+test: ## Run the test suite
 	uv run pytest
 
-# Run all checks (mirrors CI)
-check: lint
-	uv run ruff format --check .
-	uv run mypy extractors/ loaders/ dags/
-	uv run pytest
+check: lint test ## Everything CI runs
 
 ## ── Docker ───────────────────────────────────────────────────────────────────
 
-up:
-	docker compose up -d
+up: ## Start Postgres and Airflow in the background
+	@echo "Airflow UI  →  http://localhost:$(AIRFLOW_PORT)  (admin / admin)"
+	$(COMPOSE) up -d
 
-down:
-	docker compose down
+down: ## Stop all services (data is preserved)
+	$(COMPOSE) down
 
-logs:
-	docker compose logs -f
+logs: ## Follow the logs of all services
+	$(COMPOSE) logs -f
 
-build:
-	docker compose build
+build: ## Rebuild the Airflow image (after changing requirements-airflow.txt)
+	$(COMPOSE) build
 
-# First-time Airflow setup (run once)
-airflow-init:
-	docker compose up airflow-init
+airflow-init: ## First-time Airflow metadata database setup (safe to re-run)
+	$(COMPOSE) up airflow-init --build
+
+reset: ## Stop everything and DELETE all local data, then start fresh
+	$(COMPOSE) down -v
+	$(COMPOSE) up airflow-init --build
+	$(COMPOSE) up -d
 
 ## ── dbt ──────────────────────────────────────────────────────────────────────
 
-# Local dbt targets load .env (if present) so WAREHOUSE_*/POSTGRES_* are set.
-dbt-run:
-	set -a; [ -f .env ] && . ./.env || true; set +a; uv run dbt run --project-dir dbt/ --profiles-dir dbt/
+dbt-run: ## Run dbt models from your laptop
+	$(LOAD_ENV) uv run dbt run --project-dir $(DBT_DIR)/ --profiles-dir $(DBT_DIR)/
 
-dbt-test:
-	set -a; [ -f .env ] && . ./.env || true; set +a; uv run dbt test --project-dir dbt/ --profiles-dir dbt/
+dbt-test: ## Run dbt tests from your laptop
+	$(LOAD_ENV) uv run dbt test --project-dir $(DBT_DIR)/ --profiles-dir $(DBT_DIR)/
 
-dbt-run-container:
-	docker compose exec airflow-scheduler bash -c "cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt"
+dbt-run-container: ## Run dbt models inside the Airflow container
+	$(COMPOSE) exec airflow-scheduler bash -c \
+		"cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt"
+
+## ── Hand-off to ds-template-local ────────────────────────────────────────────
+
+export: ## Export the configured marts to files for the DS project
+	$(LOAD_ENV) uv run python -m exporters.cli
+
+clean: ## Remove caches and build artefacts
+	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
+	rm -rf $(DBT_DIR)/target $(DBT_DIR)/logs $(DBT_DIR)/dbt_packages
+	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
