@@ -138,7 +138,7 @@ def test_null_is_empty(exported_row):
 
 
 def test_pandas_can_read_the_whole_file(engine, tmp_path):
-    """The end product has to be readable by ds-template-local."""
+    """The end product has to be readable by ds-template."""
     pd = pytest.importorskip("pandas")
 
     path = MartExporter(

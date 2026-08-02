@@ -20,7 +20,7 @@ from typing import Any
 from uuid import UUID
 
 #: Written for a SQL NULL by default. Empty is what pandas reads as NaN without
-#: any extra configuration, which is what ds-template-local expects. The cost is
+#: any extra configuration, which is what ds-template expects. The cost is
 #: that a genuine empty string becomes indistinguishable from NULL — set
 #: ``exports.null_sentinel`` if you need to tell them apart.
 DEFAULT_NULL_SENTINEL = ""

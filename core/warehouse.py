@@ -75,7 +75,7 @@ def validate_identifier(identifier: str, kind: str) -> str:
 def normalize_column_name(name: str) -> str:
     """Normalise a source column name to a lowercase SQL identifier.
 
-    Note that ds-template-local normalises the *same* names to UPPER_SNAKE when
+    Note that ds-template normalises the *same* names to UPPER_SNAKE when
     it reads an exported file. Both are lossless round trips through the
     underscore form, so a column landing here as ``order_id`` arrives there as
     ``ORDER_ID``.

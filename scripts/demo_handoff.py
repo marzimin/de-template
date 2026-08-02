@@ -1,7 +1,7 @@
 """End-to-end demonstration of the warehouse → file → DS hand-off.
 
 Builds two marts in the warehouse, exports them with the real exporter, and
-checks the results are what ds-template-local needs. Run it with::
+checks the results are what ds-template needs. Run it with::
 
     make demo-handoff
 
@@ -14,7 +14,7 @@ The two marts make different points:
 
 ``demo_customer_features``
     A training-shaped mart: numeric features and a target, nothing else. Proves
-    the export is *usable*: ds-template-local can read this file and train on it
+    the export is *usable*: ds-template can read this file and train on it
     without touching Python.
 
 That difference is the lesson. A mart that round-trips correctly is not
@@ -117,7 +117,7 @@ def build_demo_marts(engine: Engine) -> None:
 
 
 def normalise_column_name(column_name: str) -> str:
-    """Normalise a column name the way ds-template-local does on read.
+    """Normalise a column name the way ds-template does on read.
 
     Reproduced rather than imported: that project is a separate repository and
     may not be checked out beside this one. Kept identical to its
@@ -162,7 +162,7 @@ def check_fidelity(path: Path) -> list[tuple[str, bool, str]]:
 
 
 def check_ds_readable(path: Path) -> list[tuple[str, bool, str]]:
-    """Verify the training mart meets ds-template-local's stated requirements.
+    """Verify the training mart meets ds-template's stated requirements.
 
     That project needs numeric features with no missing values by training time,
     and normalises column names to upper case on read.
@@ -221,7 +221,7 @@ def main() -> None:
         prog="demo-handoff",
         description=(
             "Build two demo marts, export them, and verify the output is "
-            "faithful and readable by ds-template-local."
+            "faithful and readable by ds-template."
         ),
     )
     parser.add_argument(
@@ -255,7 +255,7 @@ def main() -> None:
         check_fidelity(exports[EVENTS_TABLE]),
     )
     passed &= report(
-        "2. DS readability — can ds-template-local train on this?",
+        "2. DS readability — can ds-template train on this?",
         check_ds_readable(exports[FEATURES_TABLE]),
     )
 
@@ -268,7 +268,7 @@ def main() -> None:
     if passed:
         print(
             "\nTo train on it, copy "
-            f"{exports[FEATURES_TABLE].name} into ds-template-local/data/raw/ "
+            f"{exports[FEATURES_TABLE].name} into ds-template/data/raw/ "
             "(or set DS_DATA_RAW_DIR) and set its cfg/config.yaml to:\n"
             "\n  data:"
             '\n    input_file: "demo_customer_features.csv"'

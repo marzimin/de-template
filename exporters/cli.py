@@ -28,7 +28,7 @@ def export_destination(config: dict[str, Any]) -> Path:
     """Resolve where exported files are written.
 
     ``DS_DATA_RAW_DIR`` wins when set, which is how you point this project
-    straight at ds-template-local's ``data/raw/`` without editing tracked
+    straight at ds-template's ``data/raw/`` without editing tracked
     configuration. Otherwise ``exports.destination`` applies, resolved from the
     repository root.
 
@@ -99,7 +99,7 @@ def main() -> None:
         prog="export",
         description=(
             "Export warehouse marts to files for downstream consumers such as "
-            "ds-template-local. Datasets are configured in cfg/config.yaml."
+            "ds-template. Datasets are configured in cfg/config.yaml."
         ),
     )
     parser.add_argument(

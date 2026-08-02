@@ -1,6 +1,6 @@
 """Project paths, environment, and YAML configuration.
 
-Mirrors ``src/config.py`` in ds-template-local so the two projects resolve
+Mirrors ``src/config.py`` in ds-template so the two projects resolve
 configuration the same way. Table names, schema names, dbt directories, and
 export destinations all live in ``cfg/config.yaml`` rather than being hardcoded
 in DAGs and loaders.

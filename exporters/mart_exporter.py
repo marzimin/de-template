@@ -25,7 +25,7 @@ CHUNK_SIZE = 10_000
 class MartExporter(BaseExporter):
     """Reads one warehouse relation and writes it to a single file.
 
-    The output is what ds-template-local consumes: point that project's
+    The output is what ds-template consumes: point that project's
     ``cfg/config.yaml`` at ``data.input_file`` matching ``file_name`` here.
 
     Usage:
