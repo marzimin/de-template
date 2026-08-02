@@ -30,6 +30,10 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=5.0.0",
     "pytest-httpx>=0.30.0",
+    # The hand-off is only real if pandas can read the file, so the tests that
+    # assert that need pandas. Same floor as ds-template-local, which is the
+    # reader those tests stand in for.
+    "pandas>=2.2.0",
     "ruff>=0.15.0",
     "mypy>=1.19.0",
     "pre-commit>=3.7.0",

@@ -14,9 +14,9 @@ COMPOSE := docker compose
 LOAD_ENV = set -a; [ -f .env ] && . ./.env || true; set +a;
 
 .DEFAULT_GOAL := help
-.PHONY: help setup install hooks lint format typecheck test check \
+.PHONY: help setup install hooks lint format typecheck test test-integration check \
         up down logs build airflow-init reset \
-        dbt-run dbt-test dbt-run-container export clean
+        dbt-run dbt-test dbt-run-container export demo-handoff clean
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -47,6 +47,9 @@ typecheck: ## Type-check with mypy
 
 test: ## Run the test suite
 	uv run pytest
+
+test-integration: ## Run the Postgres type-fidelity tests in a throwaway container
+	./scripts/with_test_postgres.sh uv run pytest tests/test_exporters/test_postgres_types.py -v --no-cov
 
 check: lint test ## Everything CI runs
 
@@ -89,6 +92,9 @@ dbt-run-container: ## Run dbt models inside the Airflow container
 
 export: ## Export the configured marts to files for the DS project
 	$(LOAD_ENV) uv run python -m exporters.cli
+
+demo-handoff: ## Build demo marts, export them, and verify the DS project can read them
+	./scripts/with_test_postgres.sh uv run python -m scripts.demo_handoff
 
 clean: ## Remove caches and build artefacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage

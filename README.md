@@ -95,12 +95,17 @@ This template stops at the `marts` schema. [`ds-template-local`](https://github.
 picks up from a file. `exporters/` is the seam:
 
 ```bash
-make export
+make demo-handoff   # see it work end to end, no setup needed
+make export         # export your own marts
 ```
 
 Set `DS_DATA_RAW_DIR` in `.env` to that project's `data/raw/` and the files land
-where it already looks for them. See [`docs/handoff.md`](docs/handoff.md) for the
-full setup, including running it as the last task of a DAG.
+where it already looks for them.
+
+Types are converted explicitly on the way out — ISO 8601 for dates and
+durations, JSON for structures, hex for binary — so a mart survives the trip
+intact. See [`docs/handoff.md`](docs/handoff.md) for the conversion table and the
+full setup, including running the export as the last task of a DAG.
 
 ---
 
@@ -112,7 +117,9 @@ make up         # start services      make down     # stop them
 make logs       # follow the logs     make reset    # wipe and start fresh
 make dbt-run    # build the models    make dbt-test # test them
 make export     # write marts out for the DS project
-make test       # run the test suite
+make demo-handoff       # prove the hand-off works, in a throwaway database
+make test               # run the test suite
+make test-integration   # type-fidelity tests against a real Postgres
 make lint       # run every pre-commit hook
 make help       # every target
 ```

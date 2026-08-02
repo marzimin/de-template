@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 
 from core.warehouse import engine_from_env, split_relation
 from exporters.base import BaseExporter
+from exporters.serialisation import DEFAULT_NULL_SENTINEL, csv_row, parquet_row
 
 log = structlog.get_logger()
 
@@ -40,6 +41,7 @@ class MartExporter(BaseExporter):
         export_format: ExportFormat = "csv",
         default_schema: str = "marts",
         engine: Engine | None = None,
+        null_sentinel: str = DEFAULT_NULL_SENTINEL,
     ) -> None:
         """Configure an export.
 
@@ -51,6 +53,8 @@ class MartExporter(BaseExporter):
             export_format: ``"csv"`` or ``"parquet"``.
             default_schema: Schema assumed when ``relation`` is unqualified.
             engine: Warehouse engine. Built from the environment when omitted.
+            null_sentinel: What a SQL NULL becomes in CSV output. Ignored for
+                Parquet, which has a real null.
 
         Raises:
             ValueError: If ``export_format`` is not a supported format.
@@ -65,6 +69,7 @@ class MartExporter(BaseExporter):
         self.export_format: ExportFormat = export_format
         self.file_name = file_name or f"{self.table}.{export_format}"
         self.engine = engine or engine_from_env()
+        self.null_sentinel = null_sentinel
 
     @property
     def output_path(self) -> Path:
@@ -107,7 +112,12 @@ class MartExporter(BaseExporter):
                 if writer is None:
                     writer = csv.DictWriter(handle, fieldnames=list(columns))
                     writer.writeheader()
-                writer.writerows(rows)
+                # Every value is converted explicitly. Handing the driver's
+                # objects straight to the writer would fall back to str(), which
+                # destroys binary columns and emits invalid JSON.
+                writer.writerows(
+                    csv_row(row, columns, self.null_sentinel) for row in rows
+                )
                 row_count += len(rows)
 
         return self._finish(path, row_count)
@@ -129,7 +139,7 @@ class MartExporter(BaseExporter):
         all_rows: list[dict[str, Any]] = []
         for chunk_columns, rows in self._read_chunks():
             columns = chunk_columns
-            all_rows.extend(rows)
+            all_rows.extend(parquet_row(row, columns) for row in rows)
 
         if all_rows:
             table = pa.Table.from_pylist(all_rows)

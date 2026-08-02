@@ -5,6 +5,7 @@ Airflow UI, and you find out when the data does not arrive. This is the cheapest
 possible guard against that.
 """
 
+import inspect
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,12 @@ def dag_bag():
         "airflow.models",
         reason="apache-airflow is not installed in this environment",
     )
-    return airflow_models.DagBag(dag_folder=str(DAGS_DIR), include_examples=False)
+    # `include_examples` was removed in Airflow 3.3; examples are off by default
+    # there. Pass it only when the running version still accepts it, so this
+    # suite works either side of the change.
+    parameters = inspect.signature(airflow_models.DagBag.__init__).parameters
+    kwargs = {"include_examples": False} if "include_examples" in parameters else {}
+    return airflow_models.DagBag(dag_folder=str(DAGS_DIR), **kwargs)
 
 
 def test_there_is_at_least_one_dag_file():
