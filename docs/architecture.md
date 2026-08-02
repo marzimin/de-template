@@ -12,7 +12,7 @@ explain how to change any one of them — each part has its own guide:
 | --- | --- |
 | [`pipelines.md`](pipelines.md) | Extractors, loaders, DAGs |
 | [`dbt.md`](dbt.md) | The model layers, schemas, testing |
-| [`handoff.md`](handoff.md) | Exporting to ds-template-local |
+| [`handoff.md`](handoff.md) | Exporting to ds-template |
 | [`operations.md`](operations.md) | Containers, ports, secrets, resets |
 
 ---
@@ -47,7 +47,7 @@ PostgreSQL `marts`   Analysis-ready
 exporters/           Python — marts to files
      │
      ▼
-ds-template-local    Modelling, tracking, serving
+ds-template    Modelling, tracking, serving
 ```
 
 Airflow wraps the whole column and runs it on a schedule. It is not a fifth
@@ -93,7 +93,7 @@ The split matters. `cfg/config.yaml` is tracked, so a change to *what the
 pipeline does* shows up in code review. `.env` is not, so a change to *your
 machine's credentials* does not fight with anyone else's.
 
-`core/config.py` mirrors `src/config.py` in ds-template-local deliberately —
+`core/config.py` mirrors `src/config.py` in ds-template deliberately —
 `PROJECT_ROOT` resolution, an env-var override (`DE_PROJECT_ROOT` /
 `DS_PROJECT_ROOT`), `read_config()`, `project_name()` derived from the manifest.
 Moving between the repositories should not mean relearning where settings live.
@@ -110,7 +110,7 @@ which shows up as DAGs that take a long time to appear after an edit.
 
 At the file `exporters/` writes. Everything after it — feature engineering,
 model selection, experiment tracking, serving — belongs to
-[ds-template-local](https://github.com/marzimin/ds-template-local).
+[ds-template](https://github.com/marzimin/ds-template).
 
 The seam is a file rather than a shared database connection on purpose. A file
 is a snapshot you can version, hand to someone, and reproduce a model against
@@ -130,6 +130,6 @@ See [`handoff.md`](handoff.md).
 | `sqlalchemy` | Database abstraction | Engine and connection lifecycle; portable across SQL databases |
 | `pyarrow` | Parquet export | Typed, compressed hand-off files when CSV is not enough |
 | `ruff` | Lint and format | Replaces flake8, black, and isort with one fast tool |
-| `mypy` | Static type checking | Runs strict here, as in ds-template-local |
+| `mypy` | Static type checking | Runs strict here, as in ds-template |
 | `bandit` | Security linting | Catches the obvious footguns before review does |
 | `pre-commit` | Runs all of the above on commit | Quality gates are automatic, and identical in CI |
