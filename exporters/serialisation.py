@@ -19,10 +19,11 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-#: Written for a SQL NULL by default. Empty is what pandas reads as NaN without
-#: any extra configuration, which is what ds-template expects. The cost is
-#: that a genuine empty string becomes indistinguishable from NULL — set
-#: ``exports.null_sentinel`` if you need to tell them apart.
+#: Written for a SQL NULL by default. Empty is what pandas reads as NaN with no
+#: extra configuration — the reference downstream project, ds-template, reads
+#: it this way out of the box. The cost is that a genuine empty string becomes
+#: indistinguishable from NULL — set ``exports.null_sentinel`` if you need to
+#: tell them apart.
 DEFAULT_NULL_SENTINEL = ""
 
 

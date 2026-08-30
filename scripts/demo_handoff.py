@@ -269,7 +269,7 @@ def main() -> None:
         print(
             "\nTo train on it, copy "
             f"{exports[FEATURES_TABLE].name} into ds-template/data/raw/ "
-            "(or set DS_DATA_RAW_DIR) and set its cfg/config.yaml to:\n"
+            "(or set HANDOFF_DESTINATION_DIR) and set its cfg/config.yaml to:\n"
             "\n  data:"
             '\n    input_file: "demo_customer_features.csv"'
             f'\n  target_column: "{TARGET_COLUMN}"'

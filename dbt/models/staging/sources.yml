@@ -1,0 +1,35 @@
+version: 2
+
+# Declares the raw tables the staging models below read with source(). Every
+# column lands as TEXT — loaders/postgres_loader.py never casts — so staging
+# is where a column first gets a real type. See
+# docs/architecture.md#2-why-raw-data-is-stored-untyped.
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: local_seed_data
+        description: >
+          Every seed_*.xlsx file from data/sample_source/, swept into one
+          table by extractors.files.local_excel:LocalSeedExtractor —
+          currently seed_categories.xlsx and seed_regions.xlsx, so rows are a
+          ragged union of both shapes. load_mode: replace. Split by entity in
+          staging — see stg_local_categories and stg_local_regions below —
+          rather than here, so the split stays visible in SQL rather than
+          hidden in the extractor.
+      - name: local_latest_orders
+        description: >
+          The current latest_orders.xlsx snapshot — the whole file, not a
+          delta. load_mode: replace, so this table is always this run's full
+          content; no history is kept here (see docs/pipelines.md
+          "Local dummy data" for what that does and doesn't let you detect).
+      - name: local_customers
+        description: >
+          The current customers.xlsx snapshot, same replace-mode shape as
+          local_latest_orders above.
+      - name: local_monthly_sales
+        description: >
+          Every monthly_sales_*.xlsx file read so far. load_mode: append, and
+          the extractor re-reads *every* matching file on every run, not just
+          new ones — so a rerun re-appends rows already loaded.
+          Deduplicate on sale_id in staging; see stg_local_monthly_sales.

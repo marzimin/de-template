@@ -94,7 +94,7 @@ def run_dbt() -> None:
 
 
 def export_marts() -> list[str]:
-    """Export the configured marts to files for ds-template.
+    """Export the configured marts to files for a downstream project.
 
     Returns:
         The paths written, as strings so they serialise into XCom cleanly.

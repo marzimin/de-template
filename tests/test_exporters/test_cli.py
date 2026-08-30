@@ -22,13 +22,13 @@ def marts_engine():
 
 
 def test_destination_prefers_the_env_var(tmp_path, monkeypatch):
-    monkeypatch.setenv("DS_DATA_RAW_DIR", str(tmp_path))
+    monkeypatch.setenv("HANDOFF_DESTINATION_DIR", str(tmp_path))
 
     assert export_destination({"exports": {"destination": "data/exports"}}) == tmp_path
 
 
 def test_destination_falls_back_to_config(monkeypatch):
-    monkeypatch.delenv("DS_DATA_RAW_DIR", raising=False)
+    monkeypatch.delenv("HANDOFF_DESTINATION_DIR", raising=False)
 
     destination = export_destination({"exports": {"destination": "data/exports"}})
 
@@ -37,13 +37,13 @@ def test_destination_falls_back_to_config(monkeypatch):
 
 
 def test_destination_defaults_when_unconfigured(monkeypatch):
-    monkeypatch.delenv("DS_DATA_RAW_DIR", raising=False)
+    monkeypatch.delenv("HANDOFF_DESTINATION_DIR", raising=False)
 
     assert export_destination({}).name == "exports"
 
 
 def test_exports_every_configured_dataset(tmp_path, monkeypatch, marts_engine):
-    monkeypatch.setenv("DS_DATA_RAW_DIR", str(tmp_path))
+    monkeypatch.setenv("HANDOFF_DESTINATION_DIR", str(tmp_path))
     config = {
         "exports": {
             "format": "csv",
@@ -58,7 +58,7 @@ def test_exports_every_configured_dataset(tmp_path, monkeypatch, marts_engine):
 
 
 def test_returns_nothing_when_no_datasets_are_configured(monkeypatch):
-    monkeypatch.delenv("DS_DATA_RAW_DIR", raising=False)
+    monkeypatch.delenv("HANDOFF_DESTINATION_DIR", raising=False)
 
     assert export_all({"exports": {"datasets": []}}) == []
 

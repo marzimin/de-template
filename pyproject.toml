@@ -7,7 +7,17 @@ requires-python = ">=3.12"
 # ── Core runtime dependencies ──────────────────────────────────────────────
 dependencies = [
     "apache-airflow>=3.2.2",
-    "dbt-postgres>=1.8.0",
+    # Both pins matter: dbt-postgres<1.10.0 keeps the classic (pre-"Fusion")
+    # adapter package, but its own metadata does not pin dbt-core tightly
+    # enough to stop a resolver picking the "Fusion" 2.x line on its own — so
+    # dbt-core is pinned explicitly too. dbt-core 2.x has no Postgres adapter
+    # at all as of this writing; either pin missing silently breaks every
+    # `dbt` command in this template. Unlike POSTGRES_VERSION/AIRFLOW_VERSION
+    # in .env, this isn't made into a knob — there is nothing to upgrade to
+    # yet. See docs/operations.md "Upgrading the pinned versions" for when
+    # (and how) to revisit it.
+    "dbt-core>=1.8.0,<2.0.0",
+    "dbt-postgres>=1.8.0,<1.10.0",
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",
     "requests>=2.31.0",
@@ -20,6 +30,8 @@ dependencies = [
     "pyarrow>=23.0.1",
     "tenacity>=8.3.0",
     "structlog>=24.0.0",
+    # Reads and writes the .xlsx workbooks the SharePoint extractor pulls in.
+    "openpyxl>=3.1.0",
 ]
 
 # ── Optional dependency groups ─────────────────────────────────────────────

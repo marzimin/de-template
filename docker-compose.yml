@@ -4,6 +4,11 @@ x-airflow-common: &airflow-common
     # (which lives at the root, kept in sync with pyproject.toml).
     context: .
     dockerfile: docker/airflow/Dockerfile
+    args:
+      # Falls back to the Dockerfile's own ARG default when unset — override
+      # by setting AIRFLOW_VERSION in .env, not by editing this file or the
+      # Dockerfile. See docs/operations.md "Upgrading the pinned versions".
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-3.3.1}
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow_db
@@ -39,7 +44,7 @@ x-airflow-common: &airflow-common
     # mount point rather than inferring it from the package's depth on disk.
     DE_PROJECT_ROOT: /opt/airflow
     # Written to by the export task; matches the data/exports mount below.
-    DS_DATA_RAW_DIR: /opt/airflow/data/exports
+    HANDOFF_DESTINATION_DIR: /opt/airflow/data/exports
   volumes:
     - ./dags:/opt/airflow/dags
     - ./core:/opt/airflow/core
@@ -48,9 +53,10 @@ x-airflow-common: &airflow-common
     - ./exporters:/opt/airflow/exporters
     - ./cfg:/opt/airflow/cfg
     - ./dbt:/opt/airflow/dbt
-    # Where the export task writes. To have Airflow write straight into the DS
-    # project instead, point this at its data/raw and set DS_DATA_RAW_DIR to
-    # /opt/airflow/data/exports in .env:
+    # Where the export task writes. To have Airflow write straight into a
+    # downstream project instead, point this at its input directory and set
+    # HANDOFF_DESTINATION_DIR to /opt/airflow/data/exports in .env — e.g. for
+    # ds-template, the reference example:
     #   - /Users/you/code/ds-template/data/raw:/opt/airflow/data/exports
     - ./data/exports:/opt/airflow/data/exports
     - ./docker/airflow/simple_auth_manager_passwords.json:/opt/airflow/simple_auth_manager_passwords.json
@@ -64,7 +70,13 @@ x-airflow-common: &airflow-common
 services:
 
   postgres:
-    image: postgres:16
+    # Override by setting POSTGRES_VERSION in .env — see docs/operations.md
+    # "Upgrading the pinned versions". A major-version bump is not just a tag
+    # change if postgres_data already has data in it: Postgres's on-disk
+    # format is not compatible across majors. `make reset` (fresh volume) is
+    # the easy path for local dev; a shared/production instance needs a real
+    # pg_upgrade or dump/restore.
+    image: postgres:${POSTGRES_VERSION:-17}
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
@@ -83,45 +95,18 @@ services:
       retries: 5
       start_period: 5s
 
-  # Runs once: creates the Airflow metadata tables. Re-running is safe (no-op).
-  airflow-init:
+  # api-server + scheduler + dag-processor + triggerer, one process tree.
+  # `airflow standalone` is Airflow's own local-dev mode — see
+  # docs/operations.md "The services" for why this is safe here specifically
+  # (forces LocalExecutor and SimpleAuthManager, both already set below;
+  # initialises the metadata DB on every start, idempotently, replacing the
+  # separate one-shot init step).
+  airflow:
     <<: *airflow-common
-    command: db migrate
-    restart: "no"
-
-  # Serves the Airflow UI + REST/execution API on :8080 (replaces `webserver` in Airflow 3).
-  airflow-api-server:
-    <<: *airflow-common
-    command: api-server
+    command: standalone
     ports:
       - "8080:8080"
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
-
-  airflow-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
-
-  # Standalone DAG file parser — a required, separate component in Airflow 3.
-  airflow-dag-processor:
-    <<: *airflow-common
-    command: dag-processor
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:

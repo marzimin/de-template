@@ -9,7 +9,7 @@ cfg/config.yaml   ← configure your sources, schemas, and exports here
 extractors/       ← Python: pull data from APIs
 loaders/          ← Python: write raw records to Postgres
 dbt/              ← SQL: raw → staging → intermediate → marts
-exporters/        ← Python: marts → files for the DS project
+exporters/        ← Python: marts → files for a downstream project
 dags/             ← Airflow: run all of the above on a schedule
 ```
 
@@ -40,14 +40,12 @@ make help    # every command, with a description
 
 ## What you get
 
-Four containers and a warehouse:
+Two containers and a warehouse:
 
 | Service | Port | What it does |
 | --- | --- | --- |
 | `postgres` | 5432 | The warehouse. Three schemas — `raw`, `staging`, `marts` — created on first start |
-| `airflow-api-server` | 8080 | The UI and REST API (replaces `webserver` from Airflow 2) |
-| `airflow-scheduler` | — | Decides what runs when |
-| `airflow-dag-processor` | — | Parses your DAG files; separate and required in Airflow 3 |
+| `airflow` | 8080 | UI, REST API, scheduler, DAG parsing, and the trigger runner — one container, via Airflow's own `standalone` mode |
 
 And a worked example that runs end to end: `example_pipeline` extracts from an
 API, loads to `raw`, builds three dbt models, and exports the mart to a file.
@@ -89,18 +87,50 @@ restart needed.
 
 ---
 
-## Handing data to the DS project
+## Local demo data (no external services)
 
-This template stops at the `marts` schema. [`ds-template`](https://github.com/marzimin/ds-template)
-picks up from a file. `exporters/` is the seam:
+The `example_pipeline` DAG above needs a real API. If you'd rather see
+`extract → load → dbt → export` run end to end with nothing external —
+before you have real credentials, or in CI — there's a second, self-contained
+example:
+
+```bash
+make local-seed   # writes fake orders/customers/sales into data/sample_source/
+```
+
+Four extractors in `extractors/files/local_excel.py` read that folder back
+into `raw.local_*` tables, registered under `sources:` in `cfg/config.yaml`
+next to `example_items`. No `.env` entry is needed — the destination is
+`local_dummy_data.destination` in `cfg/config.yaml`, not a secret.
+
+The fake data itself lives in one clearly separate file, **`scripts/demo_dataset.py`**
+— that's the one to replace with your own once you have real data (or delete
+it, along with `extractors/files/` and the `local_*` sources, if you'd rather
+build straight from the API example above). The mechanics that generate it
+(`scripts/seed_toolkit.py`, four small functions — one per file kind) aren't
+demo-specific and don't need to change either way. See
+[`docs/pipelines.md`](docs/pipelines.md#local-dummy-data-no-external-services)
+for the full checklist and what this data does and doesn't prove.
+
+---
+
+## Handing data downstream
+
+This template stops at the `marts` schema; `exporters/` is the seam to
+whatever reads from there next — a modelling project, a BI tool, anything
+that can read a CSV or parquet file. The reference example it's built and
+tested against is [`ds-template`](https://github.com/marzimin/ds-template),
+but nothing in `exporters/` knows that project's name or assumes it's the
+only possible reader.
 
 ```bash
 make demo-handoff   # see it work end to end, no setup needed
 make export         # export your own marts
 ```
 
-Set `DS_DATA_RAW_DIR` in `.env` to that project's `data/raw/` and the files land
-where it already looks for them.
+Set `HANDOFF_DESTINATION_DIR` in `.env` to your downstream project's input
+directory (e.g. ds-template's `data/raw/`) and the files land where it
+already looks for them.
 
 Types are converted explicitly on the way out — ISO 8601 for dates and
 durations, JSON for structures, hex for binary — so a mart survives the trip
@@ -118,6 +148,7 @@ make logs       # follow the logs     make reset    # wipe and start fresh
 make dbt-run    # build the models    make dbt-test # test them
 make export     # write marts out for the DS project
 make demo-handoff       # prove the hand-off works, in a throwaway database
+make local-seed         # fake data for the no-external-services demo pipeline
 make test               # run the test suite
 make test-integration   # type-fidelity tests against a real Postgres
 make lint       # run every pre-commit hook
@@ -133,7 +164,7 @@ make help       # every target
 | [`docs/architecture.md`](docs/architecture.md) | You want to understand how the pieces fit together and why |
 | [`docs/pipelines.md`](docs/pipelines.md) | You are writing extractors, loaders, or DAGs |
 | [`docs/dbt.md`](docs/dbt.md) | You are writing SQL models |
-| [`docs/handoff.md`](docs/handoff.md) | You are wiring this project into ds-template |
+| [`docs/handoff.md`](docs/handoff.md) | You are wiring this project into a downstream project (ds-template is the worked example) |
 | [`docs/operations.md`](docs/operations.md) | You are managing the containers, ports, or secrets |
 
 ---
@@ -145,11 +176,11 @@ make help       # every target
 | Containers will not start | Docker Desktop is not running | Check the whale icon; run `docker info` |
 | Port 5432 or 8080 in use | Something else has it | `lsof -i :5432`, or change the mapping in `docker-compose.yml` |
 | `uv: command not found` | Shell has not reloaded | Reopen the terminal, or `source ~/.zshrc` |
-| Airflow shows no DAGs | The file failed to parse | `docker compose logs airflow-dag-processor`, or run `make test` — `tests/test_dags.py` catches this |
+| Airflow shows no DAGs | The file failed to parse | `docker compose logs airflow \| grep dag-processor`, or run `make test` — `tests/test_dags.py` catches this |
 | A task fails with `ModuleNotFoundError` | Package missing from the image | Add it to `requirements-airflow.txt` and `make build` |
-| UI does not load, containers restarting | A typo in an `AIRFLOW__…` setting | `docker compose ps`, then `docker compose logs airflow-api-server` |
+| UI does not load, container restarting | A typo in an `AIRFLOW__…` setting | `docker compose ps`, then `docker compose logs airflow` |
 | `permission denied for schema public` on init | Volume predates the `init.sh` fix | `make reset` (deletes local data) |
-| `make export` writes nowhere useful | `DS_DATA_RAW_DIR` unset | Set it in `.env`, or collect the files from `data/exports/` |
+| `make export` writes nowhere useful | `HANDOFF_DESTINATION_DIR` unset | Set it in `.env`, or collect the files from `data/exports/` |
 | Commit fails with `pre-commit not found` | Hook points at a deleted virtualenv | `make hooks` |
 
 ---
@@ -162,6 +193,11 @@ make help       # every target
 - **Change the schemas.** Edit `warehouse:` in `cfg/config.yaml`, the `+schema:`
   settings in `dbt/dbt_project.yml`, and `docker/postgres/init.sh`. A test
   checks the first two agree.
+- **Replace the demo dataset.** `scripts/demo_dataset.py` is the fake data
+  behind `make local-seed` — edit it (or delete it and `extractors/files/`
+  entirely) once you have real data. `scripts/seed_toolkit.py`'s four
+  generator primitives aren't demo-specific and don't need to change. See
+  "Local demo data" above.
 - **Explore the data.** `uv sync --group notebooks` adds Jupyter and pandas,
   pointed at the same warehouse. Modelling belongs in `ds-template`.
 - **Quality gates.** `make lint` runs Ruff, MyPy (strict), Bandit, and the

@@ -10,7 +10,8 @@
 # task log weeks later.
 
 apache-airflow-providers-standard>=1.0.0
-dbt-postgres>=1.8.0
+dbt-core>=1.8.0,<2.0.0
+dbt-postgres>=1.8.0,<1.10.0
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.0
 requests>=2.31.0
@@ -21,3 +22,4 @@ pyyaml>=6.0
 pyarrow>=23.0.1
 tenacity>=8.3.0
 structlog>=24.0.0
+openpyxl>=3.1.0

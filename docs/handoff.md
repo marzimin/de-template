@@ -1,8 +1,16 @@
-# Hand-off to ds-template
+# Handing off downstream
 
-This project owns everything up to and including the `marts` schema.
-[`ds-template`](https://github.com/marzimin/ds-template) owns
-everything after. The seam is a file.
+This project owns everything up to and including the `marts` schema. A
+downstream project owns everything after. The seam is a file — `exporters/`
+writes it, and nothing on this side knows or cares what reads it back.
+
+This guide walks through the reference example, [`ds-template`](https://github.com/marzimin/ds-template),
+because a worked example beats an abstract one. If your downstream project
+isn't ds-template, the mechanism (file format, type conversions, the
+`HANDOFF_DESTINATION_DIR` env var, the two tests in "Keeping the contract
+honest") still applies unchanged — only the specifics under "Setup" and
+"Declaring the columns" (ds-template's own directory layout, config keys, and
+`FEATURE_COLUMNS`) are particular to that one project.
 
 ---
 
@@ -48,14 +56,14 @@ Both repositories checked out side by side:
 Set the destination in this project's `.env`:
 
 ```bash
-DS_DATA_RAW_DIR=/Users/you/code/ds-template/data/raw
+HANDOFF_DESTINATION_DIR=/Users/you/code/ds-template/data/raw
 ```
 
 Declare what to export in `cfg/config.yaml`:
 
 ```yaml
 exports:
-  destination: "data/exports"     # used when DS_DATA_RAW_DIR is unset
+  destination: "data/exports"     # used when HANDOFF_DESTINATION_DIR is unset
   format: "csv"
   datasets:
     - relation: "marts.example_items"
@@ -116,7 +124,7 @@ mounted. In `docker-compose.yml`, replace the `data/exports` mount:
     - /Users/you/code/ds-template/data/raw:/opt/airflow/data/exports
 ```
 
-The compose file already sets `DS_DATA_RAW_DIR=/opt/airflow/data/exports`, so
+The compose file already sets `HANDOFF_DESTINATION_DIR=/opt/airflow/data/exports`, so
 nothing else changes. Restart with `make up`.
 
 ---

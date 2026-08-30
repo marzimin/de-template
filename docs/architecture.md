@@ -12,7 +12,7 @@ explain how to change any one of them — each part has its own guide:
 | --- | --- |
 | [`pipelines.md`](pipelines.md) | Extractors, loaders, DAGs |
 | [`dbt.md`](dbt.md) | The model layers, schemas, testing |
-| [`handoff.md`](handoff.md) | Exporting to ds-template |
+| [`handoff.md`](handoff.md) | Exporting downstream (ds-template is the worked example) |
 | [`operations.md`](operations.md) | Containers, ports, secrets, resets |
 
 ---
