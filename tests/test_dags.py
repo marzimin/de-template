@@ -50,3 +50,29 @@ def test_the_example_pipeline_runs_extract_then_transform_then_export(dag_bag):
     assert set(dag.task_ids) == {"extract_and_load", "dbt_run", "export_marts"}
     assert dag.get_task("dbt_run").upstream_task_ids == {"extract_and_load"}
     assert dag.get_task("export_marts").upstream_task_ids == {"dbt_run"}
+
+
+def test_the_local_demo_pipeline_is_registered(dag_bag):
+    assert "local_demo_pipeline" in dag_bag.dags
+
+
+def test_the_local_demo_pipeline_runs_extract_then_transform_then_export(dag_bag):
+    dag = dag_bag.dags["local_demo_pipeline"]
+
+    extract_task_ids = {
+        f"extract_and_load__{name}"
+        for name in (
+            "local_seed_data",
+            "local_latest_orders",
+            "local_customers",
+            "local_monthly_sales",
+        )
+    }
+    assert set(dag.task_ids) == extract_task_ids | {
+        "dbt_run",
+        "dbt_test",
+        "export_marts",
+    }
+    assert dag.get_task("dbt_run").upstream_task_ids == extract_task_ids
+    assert dag.get_task("dbt_test").upstream_task_ids == {"dbt_run"}
+    assert dag.get_task("export_marts").upstream_task_ids == {"dbt_test"}

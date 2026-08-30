@@ -128,3 +128,7 @@ exports:
   datasets:
     - relation: "marts.example_items"
       file_name: "example_items.csv"
+    - relation: "marts.local_sales_by_category"
+      file_name: "local_sales_by_category.csv"
+    - relation: "marts.local_customers"
+      file_name: "local_customers.csv"

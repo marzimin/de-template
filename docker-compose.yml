@@ -53,6 +53,11 @@ x-airflow-common: &airflow-common
     - ./exporters:/opt/airflow/exporters
     - ./cfg:/opt/airflow/cfg
     - ./dbt:/opt/airflow/dbt
+    # Where `make local-seed` (run on the host) writes, and where
+    # extractors/files/local_excel.py reads back from inside the container —
+    # without this mount, dags/local_demo_pipeline.py sees an empty folder no
+    # matter how much you've seeded on the host.
+    - ./data/sample_source:/opt/airflow/data/sample_source
     # Where the export task writes. To have Airflow write straight into a
     # downstream project instead, point this at its input directory and set
     # HANDOFF_DESTINATION_DIR to /opt/airflow/data/exports in .env — e.g. for

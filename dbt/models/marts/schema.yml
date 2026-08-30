@@ -30,3 +30,44 @@ models:
           downstream would train on columns like this one.
         tests:
           - not_null
+
+  - name: local_sales_by_category
+    description: >
+      Monthly sales totals per category, from the local demo data
+      (data/sample_source/, see docs/pipelines.md "Local dummy data"). Joins
+      the incremental monthly_sales fact to the seed categories dimension in
+      int_local_monthly_sales_enriched, then aggregates here — the worked
+      example of the staging → intermediate → marts shape end to end.
+    columns:
+      - name: category_id
+        description: >
+          NULL if a sale's category text didn't match any row in
+          seed_categories.xlsx — a real join-quality signal, not a bug to
+          silently coalesce away.
+      - name: category
+        tests:
+          - not_null
+      - name: sale_month
+        tests:
+          - not_null
+      - name: num_sales
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null
+
+  - name: local_customers
+    description: >
+      Pass-through of the local demo `customers.xlsx` snapshot — the simplest
+      possible mart, one row per customer, no joins. Contrast with
+      local_sales_by_category above for the two shapes a mart takes: a
+      dimension table like this one, and an aggregated fact table.
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_name
+        tests:
+          - not_null
