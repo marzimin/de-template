@@ -15,8 +15,8 @@ LOAD_ENV = set -a; [ -f .env ] && . ./.env || true; set +a;
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install hooks lint format typecheck test test-integration check \
-        up down logs build airflow-init reset \
-        dbt-run dbt-test dbt-run-container export demo-handoff clean
+        up down logs build reset \
+        dbt-run dbt-test dbt-run-container export demo-handoff local-seed clean
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -68,13 +68,9 @@ logs: ## Follow the logs of all services
 build: ## Rebuild the Airflow image (after changing requirements-airflow.txt)
 	$(COMPOSE) build
 
-airflow-init: ## First-time Airflow metadata database setup (safe to re-run)
-	$(COMPOSE) up airflow-init --build
-
 reset: ## Stop everything and DELETE all local data, then start fresh
 	$(COMPOSE) down -v
-	$(COMPOSE) up airflow-init --build
-	$(COMPOSE) up -d
+	$(COMPOSE) up -d --build
 
 ## ── dbt ──────────────────────────────────────────────────────────────────────
 
@@ -85,7 +81,7 @@ dbt-test: ## Run dbt tests from your laptop
 	$(LOAD_ENV) uv run dbt test --project-dir $(DBT_DIR)/ --profiles-dir $(DBT_DIR)/
 
 dbt-run-container: ## Run dbt models inside the Airflow container
-	$(COMPOSE) exec airflow-scheduler bash -c \
+	$(COMPOSE) exec airflow bash -c \
 		"cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt"
 
 ## ── Hand-off to ds-template ────────────────────────────────────────────
@@ -95,6 +91,9 @@ export: ## Export the configured marts to files for the DS project
 
 demo-handoff: ## Build demo marts, export them, and verify the DS project can read them
 	./scripts/with_test_postgres.sh uv run python -m scripts.demo_handoff
+
+local-seed: ## One-time: generate dummy Excel workbooks under data/ — no external service needed
+	uv run python -m scripts.seed_local_dummy_data
 
 clean: ## Remove caches and build artefacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage

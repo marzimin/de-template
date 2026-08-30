@@ -90,11 +90,17 @@ standalone_admin_password.txt
 # Anchored with a leading slash so they match only at the repository root.
 # Unanchored, `data/` would also match any nested directory of that name and
 # silently ignore source files.
-# /data/exports/ — where exporters/ writes the hand-off files consumed by
-#                  ds-template. Track the structure, never the contents.
+# /data/exports/       — where exporters/ writes the hand-off files consumed
+#                         by ds-template. Track the structure, never the
+#                         contents.
+# /data/sample_source/ — where `make local-seed` writes dummy Excel files for
+#                         the OneDrive-free extractors. Same idea: track the
+#                         structure, never the generated contents.
 /data/**
 !/data/exports/
 !/data/exports/.gitkeep
+!/data/sample_source/
+!/data/sample_source/.gitkeep
 
 # --- Notebooks (keep structure, ignore contents except tracked files) ---
 notebooks/**

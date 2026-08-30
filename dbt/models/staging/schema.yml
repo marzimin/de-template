@@ -14,3 +14,76 @@ models:
       - name: item_name
         tests:
           - not_null
+
+  - name: stg_local_categories
+    description: >
+      One of two entities pulled out of raw.local_seed_data — see
+      sources.yml. Fed by data/sample_source/ dummy data; see
+      docs/pipelines.md "Local dummy data".
+    columns:
+      - name: category_id
+        description: Natural key from seed_categories.xlsx.
+        tests:
+          - not_null
+          - unique
+      - name: category_name
+        tests:
+          - not_null
+
+  - name: stg_local_regions
+    description: >
+      The other entity pulled out of raw.local_seed_data — see
+      stg_local_categories and sources.yml.
+    columns:
+      - name: region_id
+        description: Natural key from seed_regions.xlsx.
+        tests:
+          - not_null
+          - unique
+      - name: region_name
+        tests:
+          - not_null
+
+  - name: stg_local_latest_orders
+    description: >
+      The current latest_orders.xlsx snapshot, cast and renamed.
+      load_mode: replace upstream, so this is always the full current state —
+      no deduplication needed here, unlike stg_local_monthly_sales.
+    columns:
+      - name: order_id
+        description: Natural key from the source workbook.
+        tests:
+          - not_null
+          - unique
+      - name: amount
+        tests:
+          - not_null
+
+  - name: stg_local_customers
+    description: >
+      The current customers.xlsx snapshot, cast and renamed. load_mode:
+      replace upstream, so this is always the full current state.
+    columns:
+      - name: customer_id
+        description: Natural key from the source workbook.
+        tests:
+          - not_null
+          - unique
+      - name: customer_name
+        tests:
+          - not_null
+
+  - name: stg_local_monthly_sales
+    description: >
+      Every monthly_sales_*.xlsx file loaded so far, deduplicated on
+      sale_id — see the model's own comment for why that dedup is required
+      here specifically (load_mode: append plus a full-refresh extractor).
+    columns:
+      - name: sale_id
+        description: Natural key from the source workbook.
+        tests:
+          - not_null
+          - unique
+      - name: amount
+        tests:
+          - not_null

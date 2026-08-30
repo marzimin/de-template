@@ -37,7 +37,9 @@ class StripeExtractor(BaseExtractor):
             headers={"Authorization": f"Bearer {self.api_key}"}, timeout=30
         )
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
+    )
     def _get(self, path: str) -> list[dict[str, Any]]:
         response = self.client.get(f"{self.BASE_URL}{path}")
         response.raise_for_status()
@@ -137,13 +139,84 @@ and the next dbt run would build marts from nothing.
 
 ---
 
+## Local dummy data (no external services)
+
+`extractors/files/local_excel.py` reads Excel workbooks out of
+`data/sample_source/` — no network call, no external account. It exists to
+exercise the whole pipeline (`extract → load → dbt → export`) immediately
+after cloning, and as a template for a real file- or API-backed extractor
+later. It ships four extractor classes, one per file-naming pattern, each
+needing a different `load_mode` — see that module's docstring for the seed /
+snapshot / incremental distinction.
+
+```bash
+make local-seed     # writes fake orders/customers/sales into data/sample_source/
+```
+
+The fake-data generation is split in two, on purpose:
+
+| File | What's in it | Replace it? |
+| --- | --- | --- |
+| `scripts/seed_toolkit.py` | Generic primitives — one function per file kind (`write_static_workbook`, `write_overwritten_snapshot`, `write_appended_snapshot`, `write_incremental_partitions`). Knows nothing about orders or customers. | No — keep this |
+| `scripts/demo_dataset.py` | The shipped example's actual content — categories, regions, orders, customers, monthly sales, each written with one `seed_toolkit` call. | **Yes — this is what to edit** |
+
+`scripts/seed_local_dummy_data.py` is just the CLI wrapper around
+`demo_dataset.seed_all()`; it doesn't change when you replace the dataset.
+Nothing in `.env` is required to run any of this: the destination is
+`local_dummy_data.destination` in `cfg/config.yaml`, not a secret.
+
+```yaml
+# cfg/config.yaml
+sources:
+  local_seed_data:
+    extractor: "extractors.files.local_excel:LocalSeedExtractor"
+    target_table: "raw.local_seed_data"
+    load_mode: "replace"
+```
+
+This is demo/testing data, not a production source. Two ways to move past it:
+
+- **Swap in a real API.** Treat `extractors/api/example_api.py` as the pattern
+  (see "Extractors" above), and delete `extractors/files/`,
+  `scripts/demo_dataset.py`, `scripts/seed_toolkit.py`, and the `local_*`
+  entries in `cfg/config.yaml`.
+- **Keep the local-file shape, swap the content.** `scripts/demo_dataset.py`'s
+  own docstring has the checklist: define your fake entities there using
+  `seed_toolkit`'s four primitives, copy the matching extractor class in
+  `extractors/files/local_excel.py` (a few lines each), and add the
+  `local_*`-shaped source entry. `seed_toolkit.py`, `core/local_files.py`, and
+  `extractors/files/local_excel.py`'s base class don't need to change.
+
+A few things worth knowing before leaning on the local data for anything
+beyond structural testing:
+
+- **`_source_modified` is filesystem mtime, not an edit history.** It is
+  stamped from the seeded file's mtime, which a fresh `git clone` or CI
+  checkout does not preserve. Don't build a "did the source actually change"
+  check that depends on this value being stable across environments.
+- **No real change-detection story.** `latest_orders.xlsx` and
+  `customers.xlsx` are `load_mode: replace` because the extractor re-reads
+  the *whole current file* every run — nothing here tracks staleness or
+  diffs the previous load. See "Load modes, and idempotency" above for the
+  general pattern. A dbt snapshot (`dbt/snapshots/`, already configured in
+  `dbt_project.yml` but empty) is the idiomatic way to get real change
+  history out of a replace-mode raw table — track it with a `check` strategy
+  on the staging model's natural key, not by trusting `_source_modified`.
+- **It's a fixture generator, not a fixture.** Re-running `make local-seed`
+  advances `latest_orders.xlsx`, grows `customers.xlsx`, and — once a
+  month — adds a new `monthly_sales_*.xlsx`. If a test needs a fixed,
+  unchanging dataset, seed once and stop re-running it, or write directly
+  into `data/sample_source/` with your own fixture instead.
+
+---
+
 ## DAGs
 
 Copy `dags/example_pipeline.py`. It runs extract → dbt → export and reads
 everything it needs from `cfg/config.yaml`.
 
 ```python
-SOURCE_NAME = "stripe_charges"   # the key you added under `sources:`
+SOURCE_NAME = "stripe_charges"  # the key you added under `sources:`
 ```
 
 **Import inside the task functions, not at module scope.** The dag-processor

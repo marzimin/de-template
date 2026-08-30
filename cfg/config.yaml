@@ -30,6 +30,17 @@ dbt:
   container_dir: /opt/airflow/dbt
 
 # -----------------------------------------------------------------------------
+# Local dummy data
+# -----------------------------------------------------------------------------
+# Where `make local-seed` writes its files, and where the `local_*` sources
+# below read them back from. Not a secret, so it lives here rather than in
+# `.env`. See docs/pipelines.md ("Local dummy data") for when to reach for
+# this and what it does and does not prove about a real source.
+local_dummy_data:
+  destination: "data/sample_source"
+  folder_path: "Sample Data"
+
+# -----------------------------------------------------------------------------
 # Sources
 # -----------------------------------------------------------------------------
 # One entry per upstream system. `extractor` is an import path in
@@ -52,16 +63,51 @@ sources:
     target_table: "raw.example_items"
     load_mode: "append"
 
+  # data/sample_source/ (populated by `make local-seed`) holds several kinds
+  # of workbook at once — see the module docstring in
+  # extractors/files/local_excel.py for why each kind gets its own extractor
+  # class and its own load_mode below.
+  #
+  # These four are the shipped demo — replace them with your own once you
+  # have real data. The generator is scripts/demo_dataset.py (see its
+  # docstring for the full checklist: define your data there, add a matching
+  # extractor class, then a source entry here, same shape as these four). Or
+  # delete this block and extractors/files/ entirely and follow
+  # extractors/api/example_api.py's pattern instead, if a REST API rather
+  # than a folder of files is what you actually have.
+  local_seed_data:
+    extractor: "extractors.files.local_excel:LocalSeedExtractor"
+    target_table: "raw.local_seed_data"
+    load_mode: "replace"
+
+  local_latest_orders:
+    extractor: "extractors.files.local_excel:LocalLatestOrdersExtractor"
+    target_table: "raw.local_latest_orders"
+    load_mode: "replace"
+
+  local_customers:
+    extractor: "extractors.files.local_excel:LocalCustomersExtractor"
+    target_table: "raw.local_customers"
+    load_mode: "replace"
+
+  local_monthly_sales:
+    extractor: "extractors.files.local_excel:LocalMonthlySalesExtractor"
+    target_table: "raw.local_monthly_sales"
+    load_mode: "append"
+
 # -----------------------------------------------------------------------------
-# Hand-off to the data science project
+# Hand-off downstream
 # -----------------------------------------------------------------------------
-# Marts exported to files that ds-template reads from its `data/raw/`.
-# This is the seam between the two repositories: this project owns everything
-# up to and including `marts`, that project owns everything after the file.
+# Marts exported to files for whatever reads them next — a modelling project,
+# a BI tool, anything. This is the seam: this project owns everything up to
+# and including `marts`; a downstream project owns everything after the file.
+# The reference example built and tested against is ds-template, referenced
+# below as a concrete illustration — nothing here requires it specifically.
 #
 #   destination — where the files are written. Relative paths resolve from this
-#                 repository root. Set DS_DATA_RAW_DIR in .env to point straight
-#                 at the DS project's data/raw/ instead, which is the usual
+#                 repository root. Set HANDOFF_DESTINATION_DIR in .env to point
+#                 straight at your downstream project's input directory
+#                 instead (e.g. ds-template's data/raw/), which is the usual
 #                 setup when both repositories are checked out side by side.
 #   format      — "csv" or "parquet". Use csv unless you have a reason not to:
 #                 ds-template reads csv out of the box, and parquet needs
@@ -72,8 +118,9 @@ sources:
 #                 set something like "\\N" if you need to tell them apart, and
 #                 pass na_values on the reading side to match.
 #   datasets    — one entry per file. `relation` is the mart to read,
-#                 `file_name` is what to call it on disk. The file name is what
-#                 you then set as `data.input_file` over in the DS project.
+#                 `file_name` is what to call it on disk. In the ds-template
+#                 example, the file name is then set as `data.input_file`
+#                 over there.
 exports:
   destination: "data/exports"
   format: "csv"

@@ -25,8 +25,10 @@ CHUNK_SIZE = 10_000
 class MartExporter(BaseExporter):
     """Reads one warehouse relation and writes it to a single file.
 
-    The output is what ds-template consumes: point that project's
-    ``cfg/config.yaml`` at ``data.input_file`` matching ``file_name`` here.
+    The output is a plain CSV or parquet file — point any downstream
+    project's file-reading config at ``file_name`` here. In the reference
+    example, that means ds-template's ``cfg/config.yaml``, at
+    ``data.input_file``.
 
     Usage:
         exporter = MartExporter("marts.example_items", Path("data/exports"))

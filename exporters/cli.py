@@ -27,10 +27,11 @@ log = structlog.get_logger()
 def export_destination(config: dict[str, Any]) -> Path:
     """Resolve where exported files are written.
 
-    ``DS_DATA_RAW_DIR`` wins when set, which is how you point this project
-    straight at ds-template's ``data/raw/`` without editing tracked
-    configuration. Otherwise ``exports.destination`` applies, resolved from the
-    repository root.
+    ``HANDOFF_DESTINATION_DIR`` wins when set, which is how you point this
+    project straight at a downstream project's input directory (e.g.
+    ds-template's ``data/raw/``) without editing tracked configuration.
+    Otherwise ``exports.destination`` applies, resolved from the repository
+    root.
 
     Args:
         config: Parsed ``cfg/config.yaml`` contents.
@@ -38,7 +39,7 @@ def export_destination(config: dict[str, Any]) -> Path:
     Returns:
         Absolute destination directory.
     """
-    env_destination = os.getenv("DS_DATA_RAW_DIR")
+    env_destination = os.getenv("HANDOFF_DESTINATION_DIR")
     if env_destination:
         return Path(env_destination).expanduser().resolve()
 

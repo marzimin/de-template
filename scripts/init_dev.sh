@@ -21,11 +21,8 @@ uv run pre-commit install
 echo "==> Creating the export directory for the ds-template hand-off"
 mkdir -p data/exports
 
-echo "==> Building image and initialising the Airflow metadata database"
-docker compose up airflow-init --build
-
-echo "==> Starting Docker services"
-docker compose up -d
+echo "==> Building image and starting Docker services"
+docker compose up -d --build
 
 echo ""
 echo "Done! Services running:"
@@ -35,4 +32,4 @@ echo ""
 echo "Next:"
 echo "  make help     list every command"
 echo "  make dbt-run  build the dbt models"
-echo "  make export   write the marts out for ds-template"
+echo "  make export   write the marts out downstream"
