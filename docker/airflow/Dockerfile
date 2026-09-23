@@ -1,4 +1,4 @@
-FROM apache/airflow:3.1.8-python3.12
+FROM apache/airflow:3.3.2-python3.12
 
 ARG VERSION=dev
 LABEL org.opencontainers.image.version="${VERSION}"
