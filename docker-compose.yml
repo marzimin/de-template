@@ -64,7 +64,7 @@ x-airflow-common: &airflow-common
 services:
 
   postgres:
-    image: postgres:16
+    image: postgres:18
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
