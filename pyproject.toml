@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 
 # ── Core runtime dependencies ──────────────────────────────────────────────
 dependencies = [
-    "apache-airflow>=3.2.2",
+    "apache-airflow>=3.3.2",
     "dbt-postgres>=1.8.0",
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",
@@ -17,9 +17,9 @@ dependencies = [
     "pyyaml>=6.0",
     # Parquet export. The floor matches ds-template so a file written here
     # is readable there without a version negotiation.
-    "pyarrow>=23.0.1",
-    "tenacity>=8.3.0",
-    "structlog>=24.0.0",
+    "pyarrow>=25.0.1",
+    "tenacity>=9.1.4",
+    "structlog>=26.1.0",
 ]
 
 # ── Optional dependency groups ─────────────────────────────────────────────
